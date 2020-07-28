@@ -1,0 +1,1 @@
+ALTER TABLE `smc_bankaccount`  ADD `s_user_id` VARCHAR(50) NOT NULL  AFTER `s_account_number`,  ADD `s_created_at` DATETIME NOT NULL  AFTER `s_user_id`,  ADD `s_modified_at` DATETIME NOT NULL  AFTER `s_created_at`;

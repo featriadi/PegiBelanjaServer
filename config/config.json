@@ -1,0 +1,8 @@
+{
+    "DB_USERNAME": "smc",
+    "DB_PASSWORD": "smc2020",
+    "DB_PORT": "3306",
+    "DB_HOST": "127.0.0.1",
+    "DB_NAME": "pb_dev",
+    "SAROLE" : "SADM"
+}
