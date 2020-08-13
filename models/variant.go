@@ -32,7 +32,7 @@ func FetchAllVariantData() (Response, error) {
 		fmt.Println(err.Error())
 		resp.Status = http.StatusInternalServerError
 		resp.Message = err.Error()
-		resp.Data = Variant{}
+		resp.Data = obj
 		return resp, err
 	}
 
@@ -42,7 +42,7 @@ func FetchAllVariantData() (Response, error) {
 			fmt.Println(err.Error())
 			resp.Status = http.StatusInternalServerError
 			resp.Message = err.Error()
-			resp.Data = Variant{}
+			resp.Data = obj
 			return resp, err
 		}
 

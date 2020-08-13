@@ -56,14 +56,18 @@ type Media struct {
 	FilePath   string `json:"file_path"`
 }
 
-func FetchAllProductData() (Response, error) {
+func FetchAllProductData(is_newest_product bool) (Response, error) {
 	var res Response
 	var arrobj []Product
 	var product Product
 
 	con := db.CreateCon()
-
-	qry := "SELECT * FROM smc_product"
+	qry := ""
+	if is_newest_product {
+		qry = "SELECT * FROM smc_product WHERE s_created_at > now() - interval 7 day ORDER BY `smc_product`.`s_created_at` DESC LIMIT 12"
+	} else {
+		qry = "SELECT * FROM smc_product"
+	}
 
 	rows, err := con.Query(qry)
 
@@ -71,7 +75,7 @@ func FetchAllProductData() (Response, error) {
 		fmt.Println(err.Error())
 		res.Status = http.StatusInternalServerError
 		res.Message = err.Error()
-		res.Data = Product{}
+		res.Data = product
 		return res, err
 	}
 
@@ -85,7 +89,7 @@ func FetchAllProductData() (Response, error) {
 			fmt.Println(err.Error())
 			res.Status = http.StatusInternalServerError
 			res.Message = err.Error()
-			res.Data = Product{}
+			res.Data = product
 			return res, err
 		}
 
@@ -337,8 +341,8 @@ func CheckProductExist(id string, con *sql.DB) (bool, error) {
 	err := con.QueryRow(qry, id).Scan(&obj.Id)
 
 	if err == sql.ErrNoRows {
-		fmt.Println("Product Id '" + id + "' Not Found")
-		return false, err
+		cerr := errors.New("Product Id '" + id + "' Not Found")
+		return false, cerr
 	}
 
 	if err != nil {
@@ -353,6 +357,19 @@ func StoreProductData(product Product) (Response, error) {
 	var res Response
 	con := db.CreateCon()
 	// fmt.Println(product)
+
+	exists, err := CheckProductExist(product.Id, con)
+
+	if exists {
+		cerr := "Product Id '" + product.Id + "' Already Exist"
+		fmt.Println(cerr)
+		res.Status = http.StatusInternalServerError
+		res.Message = cerr
+		res.Data = map[string]int64{
+			"rows_affected": 0,
+		}
+		return res, err
+	}
 
 	ctx := context.Background()
 	tx, err := con.BeginTx(ctx, nil)
@@ -558,6 +575,19 @@ func UpdateProductData(product Product, param_id string) (Response, error) {
 		return res, err
 	}
 
+	tx, err = DeleteProductMediaData(ctx, tx, param_id)
+
+	if err != nil {
+		tx.Rollback()
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = map[string]int64{
+			"rows_affected": 0,
+		}
+		return res, err
+	}
+
 	tx, err = DeleteProductDiscountData(ctx, tx, param_id)
 
 	if err != nil {
@@ -597,7 +627,7 @@ func UpdateProductData(product Product, param_id string) (Response, error) {
 			tx.Rollback()
 			fmt.Println(err.Error())
 			res.Status = http.StatusInternalServerError
-			res.Message = err.Error()
+			res.Message = err.Error() + " - Details"
 			res.Data = product.ProductDetails
 
 			return res, err
@@ -615,7 +645,7 @@ func UpdateProductData(product Product, param_id string) (Response, error) {
 			tx.Rollback()
 			fmt.Println(err.Error())
 			res.Status = http.StatusInternalServerError
-			res.Message = err.Error()
+			res.Message = err.Error() + " - Media"
 			res.Data = product
 			return res, err
 		}
@@ -629,7 +659,7 @@ func UpdateProductData(product Product, param_id string) (Response, error) {
 		tx.Rollback()
 		fmt.Println(err.Error())
 		res.Status = http.StatusInternalServerError
-		res.Message = err.Error()
+		res.Message = err.Error() + " - Discount"
 		res.Data = product
 		return res, err
 	}
@@ -647,7 +677,7 @@ func UpdateProductData(product Product, param_id string) (Response, error) {
 			tx.Rollback()
 			fmt.Println(err.Error())
 			res.Status = http.StatusInternalServerError
-			res.Message = err.Error()
+			res.Message = err.Error() + " - Wholesale"
 			res.Data = product
 			return res, err
 		}
@@ -699,7 +729,6 @@ func DeleteProduct(param_id string) (Response, error) {
 	}
 
 	if !exists {
-		fmt.Println(err.Error())
 		res.Status = http.StatusInternalServerError
 		res.Message = err.Error()
 		res.Data = map[string]int64{

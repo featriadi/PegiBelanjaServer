@@ -47,7 +47,7 @@ func FetchAllMitraData() (Response, error) {
 		fmt.Println(err.Error())
 		res.Status = http.StatusInternalServerError
 		res.Message = err.Error()
-		res.Data = Mitra{}
+		res.Data = mitra
 		return res, err
 	}
 
@@ -59,7 +59,7 @@ func FetchAllMitraData() (Response, error) {
 			fmt.Println(err.Error())
 			res.Status = http.StatusInternalServerError
 			res.Message = err.Error()
-			res.Data = Mitra{}
+			res.Data = mitra
 			return res, err
 		}
 
@@ -92,7 +92,7 @@ func GetMitraAddress(con *sql.DB, mitra Mitra) (Response, error, Mitra) {
 	if err != nil {
 		res.Status = http.StatusInternalServerError
 		res.Message = "GetMitraAddress - qry - " + strconv.Itoa(mitra.Id) + " - " + err.Error()
-		res.Data = Mitra{}
+		res.Data = mitra
 		return res, err, mitra
 	}
 
@@ -104,7 +104,7 @@ func GetMitraAddress(con *sql.DB, mitra Mitra) (Response, error, Mitra) {
 			fmt.Println(err.Error() + " - " + strconv.Itoa(mitra.Id))
 			res.Status = http.StatusInternalServerError
 			res.Message = "GetMitraAddress - scn - " + strconv.Itoa(mitra.Id) + " - " + err.Error()
-			res.Data = Mitra{}
+			res.Data = mitra
 			return res, err, mitra
 		}
 

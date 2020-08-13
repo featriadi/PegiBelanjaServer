@@ -133,8 +133,8 @@ func ShowUserDataById(param_id string) (Response, error) {
 		fmt.Println(err.Error())
 		resp.Status = http.StatusInternalServerError
 		resp.Message = err.Error()
-		resp.Data = Variant{}
-		return resp, nil
+		resp.Data = obj
+		return resp, err
 	}
 
 	for rows.Next() {
@@ -144,8 +144,8 @@ func ShowUserDataById(param_id string) (Response, error) {
 			fmt.Println(err.Error())
 			resp.Status = http.StatusInternalServerError
 			resp.Message = err.Error()
-			resp.Data = Variant{}
-			return resp, nil
+			resp.Data = obj
+			return resp, err
 		}
 
 		arrobj = append(arrobj, obj)

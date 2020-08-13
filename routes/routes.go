@@ -88,15 +88,21 @@ func Init() *echo.Echo {
 	e.DELETE("/mitra/delete/:id", controller.DeleteMitra)
 	//End Mitra
 
+	//Review
+	e.GET("/review/get", controller.FetchAllReview)
+	e.GET("/review/get/:product_id", controller.FetchReviewByProductId)
+	e.POST("/review/create", controller.StoreReview)
+	//End Review
+
+	//Stock
+	e.POST("/stock-h/create", controller.CreateStockHInAndOut)
+	//End Stock
+
 	//User
 	e.POST("/user/add", controller.StoreUser)
 	e.GET("/user/get", controller.FetchAllUserData)
 	// e.POST("/")
 	//ENd User
-
-	//Test
-	e.POST("/test", controller.StoreProduct)
-	//End
 
 	//Auth
 	e.GET("/generate-hash/:password", controller.GenerateHashPassword)

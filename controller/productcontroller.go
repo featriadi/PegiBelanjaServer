@@ -17,7 +17,19 @@ import (
 func FetchAllProductData(c echo.Context) error {
 	fmt.Println("GET Product END POINT HIT!")
 
-	result, err := models.FetchAllProductData()
+	query_param := c.QueryParam("newest_product")
+
+	if query_param == "" {
+		query_param = "false"
+	}
+
+	newest_product, err := strconv.ParseBool(query_param)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Parse Boolean : " + err.Error()})
+	}
+
+	result, err := models.FetchAllProductData(newest_product)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
@@ -68,7 +80,7 @@ func StoreProduct(c echo.Context) error {
 	result, err := models.StoreProductData(*product)
 
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Process Error : " + err.Error()})
+		return c.JSON(http.StatusInternalServerError, result)
 	}
 	return c.JSON(http.StatusOK, result)
 }
@@ -140,7 +152,7 @@ func UpdateProduct(c echo.Context) error {
 
 	result, err := models.UpdateProductData(*product, param_id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Process Error : " + err.Error()})
+		return c.JSON(http.StatusInternalServerError, result)
 	}
 	return c.JSON(http.StatusOK, result)
 }
@@ -153,7 +165,7 @@ func DeleteProduct(c echo.Context) error {
 	result, err := models.DeleteProduct(param_id)
 
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"message": err.Error(), "status": http.StatusInternalServerError})
+		return c.JSON(http.StatusInternalServerError, result)
 	}
 
 	return c.JSON(http.StatusOK, result)
