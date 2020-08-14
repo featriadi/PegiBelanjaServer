@@ -14,13 +14,29 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+func GetTotalProducts(c echo.Context) error {
+	result, err := models.GetTotalProduts()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
 func FetchAllProductData(c echo.Context) error {
 	fmt.Println("GET Product END POINT HIT!")
 
 	query_param := c.QueryParam("newest_product")
+	isp := c.QueryParam("isp")
+	_start := c.QueryParam("_start")
+	_limit := c.QueryParam("_limit")
+	_userid := c.FormValue("user_id")
 
 	if query_param == "" {
 		query_param = "false"
+	}
+
+	if isp == "" {
+		isp = "false"
 	}
 
 	newest_product, err := strconv.ParseBool(query_param)
@@ -29,7 +45,13 @@ func FetchAllProductData(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Parse Boolean : " + err.Error()})
 	}
 
-	result, err := models.FetchAllProductData(newest_product)
+	_isp, err := strconv.ParseBool(isp)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Parse Boolean 202 : " + err.Error()})
+	}
+
+	result, err := models.FetchAllProductData(newest_product, _start, _limit, _isp, _userid)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
@@ -51,13 +73,24 @@ func ShowProductDataById(c echo.Context) error {
 }
 
 func StoreProduct(c echo.Context) error {
-	fmt.Println("POST Product End Point Hit")
+	// fmt.Println("POST Product End Point Hit")
 
 	var product = new(models.Product)
 
 	err := c.Bind(product)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Bind Error : " + err.Error()})
+	}
+
+	query_param := c.QueryParam("is_mitra")
+	if query_param == "" {
+		query_param = "false"
+	}
+
+	is_mitra, err := strconv.ParseBool(query_param)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Parse Boolean : " + err.Error()})
 	}
 
 	// filedir, err := UploadMultipleFile(c, product.Id)
@@ -77,7 +110,7 @@ func StoreProduct(c echo.Context) error {
 	// 	product.ProductMedia = append(product.ProductMedia, *product_media)
 	// }
 
-	result, err := models.StoreProductData(*product)
+	result, err := models.StoreProductData(*product, is_mitra)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, result)
@@ -87,11 +120,14 @@ func StoreProduct(c echo.Context) error {
 
 func Test(c echo.Context) error {
 
-	filedir, err := UploadMultipleFile(c, "aaaa")
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Process Error : " + err.Error()})
-	}
-	return c.JSON(http.StatusOK, filedir)
+	a := c.FormValue("content")
+
+	return c.JSON(http.StatusOK, a)
+	// filedir, err := UploadMultipleFile(c, "aaaa")
+	// if err != nil {
+	// 	return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Process Error : " + err.Error()})
+	// }
+	// return c.JSON(http.StatusOK, filedir)
 
 }
 

@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const ObjectId = "PRODUCT"
+
 type Product struct {
 	Id                    string           `json:"id"`
 	Name                  string           `json:"name"`
@@ -56,7 +58,7 @@ type Media struct {
 	FilePath   string `json:"file_path"`
 }
 
-func FetchAllProductData(is_newest_product bool) (Response, error) {
+func FetchAllProductData(is_newest_product bool, start string, limit string, isp bool, user_id string) (Response, error) {
 	var res Response
 	var arrobj []Product
 	var product Product
@@ -64,11 +66,25 @@ func FetchAllProductData(is_newest_product bool) (Response, error) {
 	con := db.CreateCon()
 	qry := ""
 	if is_newest_product {
-		qry = "SELECT * FROM smc_product WHERE s_created_at > now() - interval 7 day ORDER BY `smc_product`.`s_created_at` DESC LIMIT 12"
+		qry = `SELECT A.* FROM smc_product A
+		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+		WHERE A.s_created_at > now() - interval 7 day 
+		and B.s_status = 'VERIFIED' and A.s_publish_status = 1
+		ORDER BY A.s_created_at DESC LIMIT 12`
+	} else if start != "" {
+		qry = `SELECT A.* FROM smc_product A
+		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+		WHERE B.s_status = 'VERIFIED' and A.s_publish_status = 1 LIMIT ` + start + `,` + limit
+	} else if isp {
+		qry = `SELECT A.* FROM smc_product A 
+		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+		WHERE
+		B.s_status = 'VERIFIED' and A.s_publish_status = 1`
+	} else if user_id != "" {
+		qry = "SELECT * FROM smc_product WHERE s_user_id = '" + user_id + "'"
 	} else {
 		qry = "SELECT * FROM smc_product"
 	}
-
 	rows, err := con.Query(qry)
 
 	if err != nil {
@@ -353,7 +369,31 @@ func CheckProductExist(id string, con *sql.DB) (bool, error) {
 	return true, nil
 }
 
-func StoreProductData(product Product) (Response, error) {
+func GetTotalProduts() (Response, error) {
+	var res Response
+	var count int
+	con := db.CreateCon()
+
+	qry := "select COUNT(*) as count FROM smc_product"
+
+	err := con.QueryRow(qry).Scan(&count)
+
+	if err != nil {
+		// fmt.Println(err.Error() + " - " + product.Id)
+		res.Status = http.StatusInternalServerError
+		res.Message = "GetTotalProducts - scn  - " + err.Error()
+		res.Data = Product{}
+		return res, err
+	}
+
+	res.Status = http.StatusOK
+	res.Message = "SUCCESS"
+	res.Data = count
+	return res, nil
+
+}
+
+func StoreProductData(product Product, is_mitra bool) (Response, error) {
 	var res Response
 	con := db.CreateCon()
 	// fmt.Println(product)
@@ -478,6 +518,26 @@ func StoreProductData(product Product) (Response, error) {
 	}
 	//End
 
+	var app = new(Approved)
+	app.ObjectId = ObjectId
+	app.Id = product.Id
+	app.Approved_at = time.Now().String()
+	app.UserId = product.UserId
+	if is_mitra {
+		app.Status = "NOT_VERIFIED"
+	} else {
+		app.Status = "VERIFIED"
+	}
+	err = CreateApproved(*app)
+	if err != nil {
+		tx.Rollback()
+		// fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = "Error While Creating Approved" + " - " + err.Error()
+		res.Data = app
+		return res, err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		er := err.Error() + " - Commit"
@@ -492,6 +552,82 @@ func StoreProductData(product Product) (Response, error) {
 	res.Message = "Success"
 	res.Data = map[string]string{
 		"sku_id": product.Id,
+	}
+
+	return res, nil
+}
+
+func UpdateVerified(product Product) (Response, error) {
+	var res Response
+	con := db.CreateCon()
+
+	ctx := context.Background()
+	tx, err := con.BeginTx(ctx, nil)
+	if err != nil {
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = product
+		return res, err
+	}
+
+	qry := `UPDATE smc_product SET s_publish_status = ?, s_modified_at = ? WHERE s_sku_id = ?`
+	product.Modified_at = time.Now().String()
+
+	result, err := tx.ExecContext(ctx, qry, product.PublishStatus, product.Modified_at, product.Id)
+
+	if err != nil {
+		tx.Rollback()
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = map[string]int64{
+			"rows_affected": 0,
+		}
+		return res, err
+	}
+
+	var app = new(Approved)
+	app.ObjectId = ObjectId
+	app.Id = product.Id
+	app.Approved_at = time.Now().String()
+	app.Status = "VERIFIED"
+	app.UserId = product.UserId
+
+	err = CreateApproved(*app)
+	if err != nil {
+		tx.Rollback()
+		// fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = "Error While Creating Approved" + " - " + err.Error()
+		res.Data = app
+		return res, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = product
+		return res, err
+	}
+
+	affectedRows, err := result.RowsAffected()
+	if err != nil {
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = map[string]int64{
+			"rows_affected": 0,
+		}
+		return res, err
+	}
+
+	res.Status = http.StatusOK
+	res.Message = "Success"
+	res.Data = map[string]int64{
+		"rows_affected": affectedRows,
 	}
 
 	return res, nil

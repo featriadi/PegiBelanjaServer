@@ -79,6 +79,7 @@ func Init() *echo.Echo {
 	e.PUT("/product/update/:id", controller.UpdateProduct)
 	e.DELETE("/product/delete/:id", controller.DeleteProduct)
 	e.POST("/product/file/upload", controller.UploadFileProduct)
+	e.GET("/product/count", controller.GetTotalProducts)
 	//End Product
 
 	//Mitra
@@ -101,7 +102,7 @@ func Init() *echo.Echo {
 	//User
 	e.POST("/user/add", controller.StoreUser)
 	e.GET("/user/get", controller.FetchAllUserData)
-	// e.POST("/")
+	// e.GET("/test", controller.Test)
 	//ENd User
 
 	//Auth
