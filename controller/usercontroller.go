@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"pb-dev-be/models"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -18,7 +19,7 @@ func StoreUser(c echo.Context) error {
 	user.Email = c.FormValue("email")
 	user.Password = c.FormValue("password")
 	user.UserRole = c.FormValue("user_role")
-	user.IsVerified = c.FormValue("verified")
+	user.IsVerified, _ = strconv.ParseBool(c.FormValue("verified"))
 	user.UserCreated = c.FormValue("user_created")
 	user.Created_at = time.Now().String()
 	user.Modified_at = time.Now().String()

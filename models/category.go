@@ -56,6 +56,43 @@ func FetchAllCategoryData() (Response, error) {
 	return resp, nil
 }
 
+func GetCategoryById(param_id string) (Category, error) {
+	var obj Category
+	var resp Response
+
+	con := db.CreateCon()
+
+	qry := "SELECT * FROM smc_category WHERE s_category_id = ?"
+
+	rows, err := con.Query(qry, param_id)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		resp.Status = http.StatusInternalServerError
+		resp.Message = err.Error()
+		resp.Data = Category{}
+		return obj, err
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&obj.Id, &obj.Name, &obj.UserId, &obj.Created_at, &obj.Modified_at)
+		if err != nil {
+			fmt.Println(err.Error())
+			resp.Status = http.StatusInternalServerError
+			resp.Message = err.Error()
+			resp.Data = Category{}
+			return obj, err
+		}
+	}
+	defer rows.Close()
+
+	resp.Status = http.StatusOK
+	resp.Message = "Success"
+	resp.Data = obj
+
+	return obj, nil
+}
+
 func StoreCategory(cat Category) (Response, error) {
 	var res Response
 	con := db.CreateCon()

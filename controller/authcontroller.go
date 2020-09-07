@@ -1,17 +1,24 @@
 package controller
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
+	"pb-dev-be/config"
 	"pb-dev-be/helpers"
 	"pb-dev-be/models"
-
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 
 	"github.com/labstack/echo/v4"
 )
+
+type Claims struct {
+	UserId string `json:"user_id"`
+	Name   string `json:"name"`
+	jwt.StandardClaims
+}
 
 func Restricted(c echo.Context) error {
 	user := c.Get("user").(*jwt.Token)
@@ -56,34 +63,37 @@ func CheckLogin(c echo.Context) error {
 
 	user.Email = c.FormValue("email")
 	user.Password = c.FormValue("password")
-	user.RememberMe = c.FormValue("remember_me")
 
 	res, err, user := models.CheckLogin(user)
 
 	if !res {
-		return echo.ErrUnauthorized
+		// c.Response().WriteHeader(http.StatusUnauthorized)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"messages": "Wrong Email Or Password",
+		})
 	}
 
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
+		// c.Response().WriteHeader(http.StatusInternalServerError)
+		return c.JSON(http.StatusUnauthorized, map[string]string{
 			"messages": err.Error(),
 		})
+	}
+
+	expTime := time.Now().Add(5 * time.Minute)
+
+	claims := &Claims{
+		UserId: user.Id,
+		Name:   user.Name,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expTime.Unix(),
+		},
 	}
 
 	//generate token
 	// return c.String(http.StatusOK, "Success To Login")
 
-	token := jwt.New(jwt.SigningMethodHS256)
-
-	//Set Claims
-	claims := token.Claims.(jwt.MapClaims)
-	claims["user_id"] = user.Id
-	claims["name"] = user.Name
-	claims["email"] = user.Email
-	claims["user_role"] = user.UserRole
-	claims["verified"] = user.IsVerified
-	claims["remember_me"] = user.RememberMe
-	claims["expired"] = time.Now().Add(time.Hour * 168).Unix()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// Generate encoded token and send it as response.
 	t, err := token.SignedString([]byte("secret")) //uuid if u want to deploy it to server the sample was "secret"
@@ -91,34 +101,97 @@ func CheckLogin(c echo.Context) error {
 		return err
 	}
 
-	_, err = models.UpdateLastLogin(user)
+	result, err := models.UpdateLastLogin(user)
 
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, err.Error())
+		// c.Response().WriteHeader(http.StatusInternalServerError)
+		return c.JSON(http.StatusInternalServerError, result)
 	}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"token": t,
-	})
-
-	// refreshToken := jwt.New(jwt.SigningMethodHS256)
-	// rtClaims := refreshToken.Claims.(jwt.MapClaims)
-	// claims["user_id"] = user.Id
-	// claims["name"] = user.Name
-	// claims["email"] = user.Email
-	// claims["user_role"] = user.UserRole
-	// claims["verified"] = user.IsVerified
-	// claims["remember_me"] = user.RememberMe
-	// rtClaims["expired"] = time.Now().Add(time.Hour * 24).Unix()
-	// rt, err := refreshToken.SignedString([]byte("secret"))
-	// if err != nil {
-	// 	return err
-	// }
-	// return c.JSON(http.StatusOK, map[string]string{
-	// 	"access_token":  t,
-	// 	"refresh_token": rt,
+	// http.SetCookie(c.Response().Writer, &http.Cookie{
+	// 	Name:    "token",
+	// 	Value:   t,
+	// 	Expires: expTime,
+	// 	Domain: ,
 	// })
 
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"user_id":  user.Id,
+		"name":     user.Name,
+		"role":     user.UserRole,
+		"verified": user.IsVerified,
+		"token":    t,
+	})
+}
+
+func RefreshToken(c echo.Context) error {
+	cookie, err := c.Request().Cookie("token")
+	if err != nil {
+		if err == http.ErrNoCookie {
+			// c.Response().WriteHeader(http.StatusUnauthorized)
+			return c.JSON(http.StatusUnauthorized, map[string]string{
+				"messages": err.Error(),
+			})
+		}
+		// c.Response().WriteHeader(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"messages": err.Error(),
+		})
+	}
+
+	tknStr := cookie.Value
+	claims := &Claims{}
+	tkn, err := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte("secret"), nil
+	})
+	if err != nil {
+		if err == jwt.ErrSignatureInvalid {
+			// c.Response().WriteHeader(http.StatusUnauthorized)
+			return c.JSON(http.StatusUnauthorized, map[string]string{
+				"messages": err.Error(),
+			})
+		}
+		// c.Response().WriteHeader(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"messages": err.Error(),
+		})
+	}
+	if !tkn.Valid {
+		// c.Response().WriteHeader(http.StatusUnauthorized)
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"messages": err.Error(),
+		})
+	}
+
+	if time.Unix(claims.ExpiresAt, 0).Sub(time.Now()) > 30*time.Second {
+		// c.Response().WriteHeader(http.StatusUnauthorized)
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"messages": "Unauthorized",
+		})
+	}
+
+	expTime := time.Now().Add(5 * time.Minute)
+	claims.ExpiresAt = expTime.Unix()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	t, err := token.SignedString([]byte("secret"))
+	if err != nil {
+		// c.Response().WriteHeader(http.StatusInternalServerError)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"messages": err.Error(),
+		})
+	}
+
+	// http.SetCookie(c.Response().Writer, &http.Cookie{
+	// 	Name:    "token",
+	// 	Value:   t,
+	// 	Expires: expTime,
+	// })
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"user_id": claims.Id,
+		"name":    claims.Name,
+		"token":   t,
+	})
 }
 
 func GenerateHashPassword(c echo.Context) error {
@@ -207,4 +280,16 @@ func Token(c echo.Context) error {
 	}
 
 	return err
+}
+
+func GetAuthForMidtrans(c echo.Context) error {
+	conf := config.GetConfig()
+	SERVER_KEY := conf.MIDTRANS_SERVER_KEY + ":"
+	auth := base64.StdEncoding.EncodeToString([]byte(SERVER_KEY))
+
+	if auth == "" {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"messages": "Error While Encoding Server Key " + SERVER_KEY})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"key": auth})
 }

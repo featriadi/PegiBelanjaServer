@@ -15,7 +15,7 @@ type User struct {
 	Email       string `json:"email"`
 	Password    string `json:"password"`
 	UserRole    string `json:"user_role"`
-	IsVerified  string `json:"verified"`
+	IsVerified  bool   `json:"verified"`
 	RememberMe  string `json:"remember_me"`
 	UserCreated string `json:"user_created"`
 	Created_at  string `json:"created_at"`

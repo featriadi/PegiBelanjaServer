@@ -85,6 +85,52 @@ func FetchAllCustomerData() (Response, error) {
 
 }
 
+func GetCustomerById(param_id int) (Customer, error) {
+	var res Response
+	var cust Customer
+
+	con := db.CreateCon()
+
+	qry := "SELECT * FROM smc_customer WHERE s_customer_id = ?"
+
+	rows, err := con.Query(qry, param_id)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = Customer{}
+		return cust, err
+	}
+
+	for rows.Next() {
+		err := rows.Scan(&cust.Id, &cust.Name, &cust.PhoneNumber, &cust.Email, &cust.Point,
+			&cust.WalletBallance, &cust.Status, &cust.UserCreated, &cust.Created_at, &cust.Modified_at)
+
+		if err != nil {
+			fmt.Println(err.Error())
+			res.Status = http.StatusInternalServerError
+			res.Message = err.Error()
+			res.Data = Customer{}
+			return cust, err
+		}
+
+		_, err, cust_a := GetCustomerAddress(con, cust)
+		cust.CustAddress = cust_a.CustAddress
+		// fmt.Println("Nyampe kemari")
+		if err != nil {
+			return cust, err
+		}
+	}
+	defer rows.Close()
+
+	res.Status = http.StatusOK
+	res.Message = "Success"
+	res.Data = cust
+
+	return cust, nil
+}
+
 func ShowCustomerById(param_id int) (Response, error) {
 	var res Response
 	var cust Customer
@@ -322,7 +368,7 @@ func StoreCustomerAndUserData(cust Customer, password string) (Response, error) 
 	user.Email = cust.Email
 	user.Password = password
 	user.UserRole = "CUST"
-	user.IsVerified = "1"
+	user.IsVerified = true
 	user.RememberMe = "0"
 	user.Created_at = time.Now().String()
 	user.Modified_at = time.Now().String()

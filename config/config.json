@@ -4,5 +4,7 @@
     "DB_PORT": "3306",
     "DB_HOST": "127.0.0.1",
     "DB_NAME": "pb_dev",
-    "SAROLE" : "SADM"
+    "SAROLE" : "SADM",
+    "MIDTRANS_SERVER_KEY": "SB-Mid-server-e7BKf4HjAqWrjBn0cAZLSV5v",
+    "MIDTRANS_MERCHANT_ID": "G702660671"
 }

@@ -95,6 +95,24 @@ func Init() *echo.Echo {
 	e.POST("/review/create", controller.StoreReview)
 	//End Review
 
+	//PBCourier
+	e.GET("/p-courier/get", controller.FetchAllPBCourier)
+	e.POST("/p-courier/create", controller.StorePBCourier)
+	e.PUT("/p-courier/update", controller.UpdatePBCourier)
+	e.DELETE("/p-courier/delete/:id", controller.DeletePBCourier)
+	//End PBCourier
+
+	//Courier
+	e.GET("/courier/get", controller.FetchAllCourier)
+	e.POST("/courier/create", controller.StoreCourier)
+	e.PUT("/courier/update/:id", controller.UpdateCourier)
+	e.DELETE("/courier/delete/:id", controller.DeleteCourier)
+	//End Courier
+
+	//Order
+	e.POST("/order/create", controller.CreateOrder)
+	//End Order
+
 	//Stock
 	e.POST("/stock-h/create", controller.CreateStockHInAndOut)
 	//End Stock
@@ -105,6 +123,15 @@ func Init() *echo.Echo {
 	// e.GET("/test", controller.Test)
 	//ENd User
 
+	//TP
+	e.POST("/province/get-and-restore", controller.StoreProvince)
+	e.POST("/city/get-and-restore", controller.StoreCity)
+	e.POST("/subdistrict/get-and-restore", controller.StoreSubdistrict)
+	e.GET("/province/get", controller.FetchAllProvince)
+	e.GET("/city/get", controller.FetchAllCity)
+	e.GET("/subdistrict/get", controller.FetchAllSubDistrict)
+	//END TP
+
 	//Auth
 	e.GET("/generate-hash/:password", controller.GenerateHashPassword)
 	e.GET("/is-loggedin", controller.Restricted, middlewares.IsAuthtenticated)
@@ -112,6 +139,7 @@ func Init() *echo.Echo {
 	e.POST("/login", controller.CheckLogin)
 	e.POST("/refresh-token", controller.Token)
 	e.POST("/mitra/register", controller.StoreMitraWithUser)
+	e.GET("/srv-key/get", controller.GetAuthForMidtrans)
 	//End Auth
 
 	return e

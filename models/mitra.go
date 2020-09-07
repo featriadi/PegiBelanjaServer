@@ -262,7 +262,7 @@ func StoreMitraAndRegisterUser(mitra Mitra, password string) (Response, error) {
 	user.Email = mitra.Email
 	user.Password = password
 	user.UserRole = "MIT"
-	user.IsVerified = "1"
+	user.IsVerified = false
 	user.RememberMe = "0"
 	user.Created_at = time.Now().String()
 	user.Modified_at = time.Now().String()

@@ -68,7 +68,7 @@ func FetchAllProductData(is_newest_product bool, start string, limit string, isp
 	if is_newest_product {
 		qry = `SELECT A.* FROM smc_product A
 		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
-		WHERE A.s_created_at > now() - interval 7 day 
+		WHERE A.s_created_at > now() - interval 2 month 
 		and B.s_status = 'VERIFIED' and A.s_publish_status = 1
 		ORDER BY A.s_created_at DESC LIMIT 12`
 	} else if start != "" {
@@ -142,6 +142,73 @@ func FetchAllProductData(is_newest_product bool, start string, limit string, isp
 	res.Data = arrobj
 
 	return res, nil
+}
+
+func GetProductById(param_id string) (Product, error) {
+	var res Response
+	var product Product
+
+	con := db.CreateCon()
+
+	qry := "SELECT * FROM smc_product WHERE s_sku_id = ?"
+
+	rows, err := con.Query(qry, param_id)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = Product{}
+		return product, err
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&product.Id, &product.Name, &product.CategoryId, &product.Description,
+			&product.MinOrder, &product.IsVariant, &product.IsDiscount, &product.IsReadyStock,
+			&product.IsWholesalePrice, &product.PublishStatus, &product.UserId,
+			&product.Created_at, &product.Modified_at)
+
+		if err != nil {
+			fmt.Println(err.Error())
+			res.Status = http.StatusInternalServerError
+			res.Message = err.Error()
+			res.Data = Product{}
+			return product, err
+		}
+
+		// fmt.Println(product.Id)
+		_, err, prod := GetProductDetails(con, product)
+		product.ProductDetails = prod.ProductDetails
+		if err != nil {
+			return product, err
+		}
+
+		_, err, prod = GetProductMedia(con, product)
+		product.ProductMedia = prod.ProductMedia
+		if err != nil {
+			return product, err
+		}
+
+		_, err, prod = GetProductDiscount(con, product)
+		product.ProductDiscount = prod.ProductDiscount
+		if err != nil {
+			return product, err
+		}
+
+		_, err, prod = GetProductWholesalePrice(con, product)
+		product.ProductWholesalePrice = prod.ProductWholesalePrice
+		if err != nil {
+			return product, err
+		}
+
+	}
+	defer rows.Close()
+
+	res.Status = http.StatusOK
+	res.Message = "Success"
+	res.Data = product
+
+	return product, nil
 }
 
 func ShowProductById(param_id string) (Response, error) {
