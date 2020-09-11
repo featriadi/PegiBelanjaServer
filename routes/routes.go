@@ -95,6 +95,13 @@ func Init() *echo.Echo {
 	e.POST("/review/create", controller.StoreReview)
 	//End Review
 
+	//Cart
+	e.GET("/cart/get", controller.GetCartByCustomerId)
+	e.POST("/cart/create", controller.CreateCart)
+	e.PUT("/cart/update", controller.UpdateCart)
+	e.DELETE("/cart/delete/:id", controller.DeleteCart)
+	//End Cart
+
 	//PBCourier
 	e.GET("/p-courier/get", controller.FetchAllPBCourier)
 	e.POST("/p-courier/create", controller.StorePBCourier)
