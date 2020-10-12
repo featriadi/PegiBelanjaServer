@@ -29,7 +29,8 @@ func FetchAllProductData(c echo.Context) error {
 	isp := c.QueryParam("isp")
 	_start := c.QueryParam("_start")
 	_limit := c.QueryParam("_limit")
-	_userid := c.FormValue("user_id")
+	_userid := c.QueryParam("user_id")
+	_title_contains := c.FormValue("title_contains")
 
 	if query_param == "" {
 		query_param = "false"
@@ -51,7 +52,7 @@ func FetchAllProductData(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Parse Boolean 202 : " + err.Error()})
 	}
 
-	result, err := models.FetchAllProductData(newest_product, _start, _limit, _isp, _userid)
+	result, err := models.FetchAllProductData(newest_product, _start, _limit, _isp, _userid, _title_contains)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}

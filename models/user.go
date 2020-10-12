@@ -40,9 +40,9 @@ func StoreUserData(user User) (Response, error) {
 		return res, err
 	}
 
-	qry := `INSERT INTO smc_user (s_name,s_email,s_password,s_userrole_id,is_verified,remember_me,s_user_created,s_created_at,
+	qry := `INSERT INTO smc_user (s_name,s_email,s_password,s_userrole_id,is_verified,s_remember_me,s_user_created,s_created_at,
 	s_modified_at, s_lastlogin)
-	 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err = tx.ExecContext(ctx, qry, user.Name, user.Email, user.Password, user.UserRole, user.IsVerified, user.RememberMe,
 		user.UserCreated, user.Created_at, user.Modified_at, user.LastLogin)
@@ -163,7 +163,9 @@ func UpdateLastLogin(user User) (Response, error) {
 	var res Response
 	con := db.CreateCon()
 
-	user.LastLogin = time.Now().String()
+	user.LastLogin = time.Now().Format("2006-01-02 15:04:05")
+	// a := time.Parse()
+	// fmt.Println(user.LastLogin)
 
 	ctx := context.Background()
 	tx, err := con.BeginTx(ctx, nil)

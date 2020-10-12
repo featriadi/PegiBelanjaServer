@@ -91,6 +91,7 @@ func GetCityByIdData(param_id string) (City, error) {
 
 func ShowCityByProvinceIdData(param_id string) (Response, error) {
 	var obj City
+	var arrObj []City
 	var res Response
 
 	con := db.CreateCon()
@@ -115,12 +116,14 @@ func ShowCityByProvinceIdData(param_id string) (Response, error) {
 			res.Data = City{}
 			return res, err
 		}
+
+		arrObj = append(arrObj, obj)
 	}
 	defer rows.Close()
 
 	res.Status = http.StatusOK
 	res.Message = "Success"
-	res.Data = obj
+	res.Data = arrObj
 
 	return res, nil
 }

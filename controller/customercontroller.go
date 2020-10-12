@@ -94,7 +94,7 @@ func StoreCustomerWithUser(c echo.Context) error {
 
 	result, err := models.StoreCustomerAndUserData(*cust, user.Password)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Process Error : " + err.Error()})
+		return c.JSON(http.StatusOK, result)
 	}
 
 	return c.JSONPretty(http.StatusOK, result, "")

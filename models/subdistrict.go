@@ -55,6 +55,7 @@ func FetchAllSubDistrictData() (Response, error) {
 
 func ShowSubDistrictByCityId(param_id string) (Response, error) {
 	var obj SubDistrict
+	var arrObj []SubDistrict
 	var res Response
 
 	con := db.CreateCon()
@@ -79,12 +80,14 @@ func ShowSubDistrictByCityId(param_id string) (Response, error) {
 			res.Data = SubDistrict{}
 			return res, err
 		}
+
+		arrObj = append(arrObj, obj)
 	}
 	defer rows.Close()
 
 	res.Status = http.StatusOK
 	res.Message = "Success"
-	res.Data = obj
+	res.Data = arrObj
 
 	return res, nil
 }

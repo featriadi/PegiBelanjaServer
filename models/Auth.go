@@ -7,13 +7,25 @@ import (
 	"pb-dev-be/helpers"
 )
 
-func CheckLogin(user User) (bool, error, User) {
+func CheckLogin(user User, is_customer bool, is_mitra bool) (bool, error, User) {
 	var obj User
 	var pwd string
 
 	con := db.CreateCon()
+	qry := ""
 
-	qry := "SELECT * FROM smc_user WHERE s_email = ?"
+	if is_customer {
+		qry = `SELECT B.s_customer_id,A.s_name,A.s_email,A.s_password,A.s_userrole_id,A.is_verified,
+		A.s_remember_me,A.s_user_created, A.s_created_at,A.s_modified_at,A.s_lastlogin 
+		FROM smc_user A LEFT JOIN smc_customer B on B.s_email = A.s_email WHERE A.s_email = ?`
+	} else if is_mitra {
+		qry = `SELECT B.s_mitra_id,A.s_name,A.s_email,A.s_password,A.s_userrole_id,A.is_verified,
+		A.s_remember_me,A.s_user_created, A.s_created_at,A.s_modified_at,A.s_lastlogin 
+		FROM smc_user A LEFT JOIN smc_mitra B on B.s_email = A.s_email WHERE A.s_email = ?`
+
+	} else {
+		qry = "SELECT * FROM smc_user WHERE s_email = ?"
+	}
 
 	err := con.QueryRow(qry, user.Email).Scan(&obj.Id, &obj.Name, &obj.Email, &pwd,
 		&obj.UserRole, &obj.IsVerified, &obj.RememberMe, &obj.UserCreated, &obj.Created_at, &obj.Modified_at, &obj.LastLogin,

@@ -7,6 +7,7 @@ import (
 	"pb-dev-be/config"
 	"pb-dev-be/helpers"
 	"pb-dev-be/models"
+	"strconv"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -64,12 +65,36 @@ func CheckLogin(c echo.Context) error {
 	user.Email = c.FormValue("email")
 	user.Password = c.FormValue("password")
 
-	res, err, user := models.CheckLogin(user)
+	_isCustomer := c.QueryParam("is_customer")
+	_isMitra := c.QueryParam("is_mitra")
+
+	if _isCustomer == "" {
+		_isCustomer = "false"
+	}
+
+	if _isMitra == "" {
+		_isMitra = "false"
+	}
+
+	isCustomer, err := strconv.ParseBool(_isCustomer)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Parse Boolean _isCustomer: " + err.Error()})
+	}
+
+	isMitra, err := strconv.ParseBool(_isMitra)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Parse Boolean _isMitra: " + err.Error()})
+	}
+
+	res, err, user := models.CheckLogin(user, isCustomer, isMitra)
 
 	if !res {
 		// c.Response().WriteHeader(http.StatusUnauthorized)
-		return c.JSON(http.StatusInternalServerError, map[string]string{
+		return c.JSON(http.StatusOK, map[string]interface{}{
 			"messages": "Wrong Email Or Password",
+			"status":   http.StatusInternalServerError,
 		})
 	}
 
@@ -115,13 +140,19 @@ func CheckLogin(c echo.Context) error {
 	// 	Domain: ,
 	// })
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
+	var response models.Response
+
+	response.Status = http.StatusOK
+	response.Message = "success"
+	response.Data = map[string]interface{}{
 		"user_id":  user.Id,
 		"name":     user.Name,
 		"role":     user.UserRole,
 		"verified": user.IsVerified,
 		"token":    t,
-	})
+	}
+
+	return c.JSON(http.StatusOK, response)
 }
 
 func RefreshToken(c echo.Context) error {

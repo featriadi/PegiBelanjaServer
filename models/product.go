@@ -30,6 +30,7 @@ type Product struct {
 	UserId                string           `json:"user_id"`
 	Created_at            string           `json:"created_at"`
 	Modified_at           string           `json:"modified_at"`
+	AppStatus             string           `json:"app_status"`
 }
 
 type Details struct {
@@ -58,32 +59,44 @@ type Media struct {
 	FilePath   string `json:"file_path"`
 }
 
-func FetchAllProductData(is_newest_product bool, start string, limit string, isp bool, user_id string) (Response, error) {
+func FetchAllProductData(is_newest_product bool, start string, limit string, isp bool, user_id string, param_search string) (Response, error) {
 	var res Response
 	var arrobj []Product
 	var product Product
-
 	con := db.CreateCon()
 	qry := ""
 	if is_newest_product {
-		qry = `SELECT A.* FROM smc_product A
+		qry = `SELECT A.*, B.s_status FROM smc_product A
 		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
 		WHERE A.s_created_at > now() - interval 2 month 
 		and B.s_status = 'VERIFIED' and A.s_publish_status = 1
 		ORDER BY A.s_created_at DESC LIMIT 12`
 	} else if start != "" {
-		qry = `SELECT A.* FROM smc_product A
+		qry = `SELECT A.*, B.s_status FROM smc_product A
 		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
 		WHERE B.s_status = 'VERIFIED' and A.s_publish_status = 1 LIMIT ` + start + `,` + limit
 	} else if isp {
-		qry = `SELECT A.* FROM smc_product A 
+		qry = `SELECT A.*, B.s_status FROM smc_product A 
 		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
 		WHERE
 		B.s_status = 'VERIFIED' and A.s_publish_status = 1`
 	} else if user_id != "" {
-		qry = "SELECT * FROM smc_product WHERE s_user_id = '" + user_id + "'"
+		qry = `SELECT A.*, B.s_status FROM smc_product A  
+		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+		WHERE A.s_user_id = '` + user_id + `'`
+	} else if param_search != "" {
+		if start != "" {
+			qry = `SELECT A.*, B.s_status FROM smc_product A
+		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+		WHERE B.s_status = 'VERIFIED' and A.s_publish_status = 1 LIMIT ` + start + `,` + limit + `and A.s_name like '` + param_search + `'`
+		} else {
+			qry = `SELECT A.*, B.s_status FROM smc_product A 
+		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+		WHERE
+		B.s_status = 'VERIFIED' and A.s_publish_status = 1 and A.s_name like '%` + param_search + `%'`
+		}
 	} else {
-		qry = "SELECT * FROM smc_product"
+		qry = "SELECT A.*, B.s_status FROM smc_product A LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'"
 	}
 	rows, err := con.Query(qry)
 
@@ -99,7 +112,7 @@ func FetchAllProductData(is_newest_product bool, start string, limit string, isp
 		err = rows.Scan(&product.Id, &product.Name, &product.CategoryId, &product.Description,
 			&product.MinOrder, &product.IsVariant, &product.IsDiscount, &product.IsReadyStock,
 			&product.IsWholesalePrice, &product.PublishStatus, &product.UserId,
-			&product.Created_at, &product.Modified_at)
+			&product.Created_at, &product.Modified_at, &product.AppStatus)
 
 		if err != nil {
 			fmt.Println(err.Error())

@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"pb-dev-be/db"
@@ -25,16 +26,19 @@ type Customer struct {
 }
 
 type CustomerAddress struct {
-	ItemNumber  int    `json:"index"`
-	AddressName string `json:"name"`
-	Recipient   string `json:"recipient"`
-	PhoneNumber string `json:"phone_number"`
-	Province    string `json:"province"`
-	City        string `json:"city"`
-	SubDistrict string `json:"sub_district"`
-	PostalCode  string `json:"postal_code"`
-	Address     string `json:"address"`
-	IsMain      string `json:"main_address"`
+	ItemNumber      int    `json:"index"`
+	AddressName     string `json:"name"`
+	Recipient       string `json:"recipient"`
+	PhoneNumber     string `json:"phone_number"`
+	Province        string `json:"province"`
+	ProvinceName    string `json:"province_name"`
+	City            string `json:"city"`
+	CityName        string `json:"city_name"`
+	SubDistrict     string `json:"sub_district"`
+	SubDistrictName string `json:"sub_district_name"`
+	PostalCode      string `json:"postal_code"`
+	Address         string `json:"address"`
+	IsMain          bool   `json:"main_address"`
 }
 
 func FetchAllCustomerData() (Response, error) {
@@ -163,7 +167,7 @@ func ShowCustomerById(param_id int) (Response, error) {
 
 		res, err, cust_a := GetCustomerAddress(con, cust)
 		cust.CustAddress = cust_a.CustAddress
-		fmt.Println("Nyampe kemari")
+		// fmt.Println("Nyampe kemari")
 		if err != nil {
 			return res, err
 		}
@@ -181,8 +185,13 @@ func GetCustomerAddress(con *sql.DB, cust Customer) (Response, error, Customer) 
 	var res Response
 	var c_address CustomerAddress
 
-	qry := `SELECT s_item_number, s_address_name, s_recipient, s_phone_number, s_province, s_city, s_sub_district, 
-	s_postal_code, s_address, s_is_main FROM smc_customeraddress WHERE s_customer_id = ?`
+	qry := `SELECT A.s_item_number, A.s_address_name, A.s_recipient, A.s_phone_number, A.s_province, B.s_name as 's_province_name', 
+	A.s_city, C.s_name as 's_city_name', A.s_sub_district, D.s_name as 's_sub_district_name',
+	A.s_postal_code, A.s_address, A.s_is_main FROM smc_customeraddress A
+	LEFT JOIN smc_province B on B.s_province_id = A.s_province
+	LEFT JOIN smc_city C on C.s_city_id = A.s_city
+	LEFT JOIN smc_subdistrict D on D.s_subdistrict_id = A.s_sub_district
+	WHERE A.s_customer_id = ?`
 
 	rows, err := con.Query(qry, cust.Id)
 
@@ -194,8 +203,8 @@ func GetCustomerAddress(con *sql.DB, cust Customer) (Response, error, Customer) 
 	}
 
 	for rows.Next() {
-		err := rows.Scan(&c_address.ItemNumber, &c_address.AddressName, &c_address.Recipient, &c_address.PhoneNumber, &c_address.Province, &c_address.City,
-			&c_address.SubDistrict, &c_address.PostalCode, &c_address.Address, &c_address.IsMain)
+		err := rows.Scan(&c_address.ItemNumber, &c_address.AddressName, &c_address.Recipient, &c_address.PhoneNumber, &c_address.Province, &c_address.ProvinceName,
+			&c_address.City, &c_address.CityName, &c_address.SubDistrict, &c_address.SubDistrictName, &c_address.PostalCode, &c_address.Address, &c_address.IsMain)
 
 		if err != nil {
 			fmt.Println(err.Error() + " - " + strconv.Itoa(cust.Id))
@@ -226,8 +235,8 @@ func StoreCustomerData(cust Customer) (Response, error) {
 		return res, err
 	}
 
-	cust.Created_at = time.Now().String()
-	cust.Modified_at = time.Now().String()
+	cust.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	cust.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	qry := `INSERT INTO smc_customer VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	qry_address := `INSERT INTO smc_customeraddress VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -262,18 +271,20 @@ func StoreCustomerData(cust Customer) (Response, error) {
 	//Mitra Address
 	for idx := range cust.CustAddress {
 		address := cust.CustAddress[idx]
-		address.ItemNumber = idx
-		_, err := tx.ExecContext(ctx, qry_address, cust.Id, address.ItemNumber, address.AddressName, address.Recipient, address.PhoneNumber,
-			address.Province, address.City, address.SubDistrict, address.PostalCode, address.Address, address.IsMain)
+		if address.AddressName != "" {
+			address.ItemNumber = idx
+			_, err := tx.ExecContext(ctx, qry_address, cust.Id, address.ItemNumber, address.AddressName, address.Recipient, address.PhoneNumber,
+				address.Province, address.City, address.SubDistrict, address.PostalCode, address.Address, address.IsMain)
 
-		if err != nil {
-			tx.Rollback()
-			fmt.Println(err.Error())
-			res.Status = http.StatusInternalServerError
-			res.Message = err.Error()
-			res.Data = cust
+			if err != nil {
+				tx.Rollback()
+				fmt.Println(err.Error())
+				res.Status = http.StatusInternalServerError
+				res.Message = err.Error()
+				res.Data = cust
 
-			return res, err
+				return res, err
+			}
 		}
 	}
 	//End
@@ -301,6 +312,28 @@ func StoreCustomerAndUserData(cust Customer, password string) (Response, error) 
 	var res Response
 	con := db.CreateCon()
 
+	exists, err := CheckCustomerExistByEmail(cust.Email, con)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = map[string]int64{
+			"rows_affected": 0,
+		}
+		return res, err
+	}
+
+	if exists {
+		er := errors.New("Email Already Used!")
+		res.Status = http.StatusInternalServerError
+		res.Message = er.Error()
+		res.Data = map[string]int64{
+			"rows_affected": 0,
+		}
+		return res, er
+	}
+
 	ctx := context.Background()
 	tx, err := con.BeginTx(ctx, nil)
 	if err != nil {
@@ -311,8 +344,8 @@ func StoreCustomerAndUserData(cust Customer, password string) (Response, error) 
 		return res, err
 	}
 
-	cust.Created_at = time.Now().String()
-	cust.Modified_at = time.Now().String()
+	cust.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	cust.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	qry := `INSERT INTO smc_customer VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	qry_address := `INSERT INTO smc_customeraddress VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -370,9 +403,9 @@ func StoreCustomerAndUserData(cust Customer, password string) (Response, error) 
 	user.UserRole = "CUST"
 	user.IsVerified = true
 	user.RememberMe = "0"
-	user.Created_at = time.Now().String()
-	user.Modified_at = time.Now().String()
-	user.LastLogin = time.Now().String()
+	user.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	user.Modified_at = time.Now().Format("2006-01-02 15:04:05")
+	user.LastLogin = time.Now().Format("2006-01-02 15:04:05")
 
 	resUser, errUser := StoreUserData(user)
 
@@ -456,7 +489,7 @@ func UpdateCustomer(cust Customer, id string) (Response, error) {
 
 	qry_address := `INSERT INTO smc_customeraddress VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	cust.Modified_at = time.Now().String()
+	cust.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	//Customer Header
 	result, err := tx.ExecContext(ctx, qry, cust.Name, cust.PhoneNumber, cust.Email, cust.Status, cust.UserCreated, cust.Modified_at, param_id)
@@ -636,6 +669,31 @@ func CheckCustomerExist(id int, con *sql.DB) (bool, error) {
 	if err == sql.ErrNoRows {
 		fmt.Println("Customer Id '" + strconv.Itoa(id) + "' Not Found")
 		return false, err
+	}
+
+	if err != nil {
+		fmt.Println("Query Error")
+		return false, err
+	}
+
+	return true, nil
+}
+
+func CheckCustomerExistByEmail(email string, con *sql.DB) (bool, error) {
+	var obj Customer
+
+	qry := "SELECT s_customer_id FROM smc_customer WHERE s_email = ?"
+
+	err := con.QueryRow(qry, email).Scan(&obj.Id)
+
+	if obj.Id != 0 {
+		// fmt.Println("Customer Id '" + strconv.Itoa(id) + "' Not Found")
+		return true, err
+	}
+
+	if err == sql.ErrNoRows {
+		// fmt.Println("Customer Id '" + strconv.Itoa(id) + "' Not Found")
+		return false, nil
 	}
 
 	if err != nil {

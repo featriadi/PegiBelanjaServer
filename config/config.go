@@ -4,14 +4,15 @@ import "github.com/tkanos/gonfig"
 
 //Struct
 type Configuration struct {
-	DB_Username          string
-	DB_PASSWORD          string
-	DB_HOST              string
-	DB_PORT              string
-	DB_NAME              string
-	SAROLE               string
-	MIDTRANS_SERVER_KEY  string
-	MIDTRANS_MERCHANT_ID string
+	DB_Username                 string
+	DB_PASSWORD                 string
+	DB_HOST                     string
+	DB_PORT                     string
+	DB_NAME                     string
+	SAROLE                      string
+	MIDTRANS_SERVER_KEY_SANDBOX string
+	MIDTRANS_SERVER_KEY         string
+	MIDTRANS_MERCHANT_ID        string
 }
 
 func GetConfig() Configuration {

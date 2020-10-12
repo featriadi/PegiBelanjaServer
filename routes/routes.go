@@ -32,7 +32,7 @@ func Init() *echo.Echo {
 	e.GET("/customer/get", controller.FetchAllCustomerData)
 	e.GET("/customer/:id", controller.ShowCustomerDataById)
 	e.POST("/customer/create", controller.StoreCustomer)
-	e.POST("/customer/register", controller.StoreCustomer)
+	e.POST("/customer/register", controller.StoreCustomerWithUser)
 	e.PUT("/customer/update/:id", controller.UpdateCustomer)
 	e.DELETE("/customer/delete/:id", controller.DeleteCustomer)
 	//End Customer
@@ -112,12 +112,14 @@ func Init() *echo.Echo {
 	//Courier
 	e.GET("/courier/get", controller.FetchAllCourier)
 	e.POST("/courier/create", controller.StoreCourier)
+	e.POST("/courier/third-pty/cost", controller.GetThirdPartyCourier)
 	e.PUT("/courier/update/:id", controller.UpdateCourier)
 	e.DELETE("/courier/delete/:id", controller.DeleteCourier)
 	//End Courier
 
 	//Order
 	e.POST("/order/create", controller.CreateOrder)
+	e.GET("/order/get/transaction/status/:order_id", controller.GetTransactionStatus)
 	//End Order
 
 	//Stock
