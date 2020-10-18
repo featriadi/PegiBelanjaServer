@@ -233,10 +233,10 @@ func GetOrderTracking(orderId string) (Response, error) {
 	return res, nil
 }
 
-func CreateOrderTracking(track OrderTracking) (Response, error) {
+func CreateOrderTracking(track OrderTracking, waybill string) (Response, error) {
 	var res Response
 	con := db.CreateCon()
-
+	var order Order
 	ctx := context.Background()
 	tx, err := con.BeginTx(ctx, nil)
 	if err != nil {
@@ -261,11 +261,38 @@ func CreateOrderTracking(track OrderTracking) (Response, error) {
 	track.ItemNumber = index
 	track.Created_at = time.Now().Format("2006-01-02 15:04:05")
 
+	if waybill != "" {
+		order.Id, _ = strconv.Atoi(track.OrderId)
+		res2, err, order := GetOrderDelivery(con, order)
+
+		if err != nil {
+			tx.Rollback()
+			er := err.Error()
+			fmt.Println(er)
+			res.Status = http.StatusInternalServerError
+			res.Message = er
+			res.Data = track
+			return res2, err
+		}
+		track.TrackingStatus = track.TrackingStatus + " (" + order.Delivery.CourierId + " - " + waybill + ")"
+	}
+
 	_, err = tx.ExecContext(ctx, qry, track.OrderId, track.ItemNumber, track.TrackingStatus, track.Created_at)
 
 	if err != nil {
 		tx.Rollback()
 		er := err.Error()
+		fmt.Println(er)
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = track
+		return res, errors.New(er)
+	}
+
+	_, err1 := UpdateOrderStatus(track.OrderId)
+	if err != nil {
+		tx.Rollback()
+		er := err1.Error()
 		fmt.Println(er)
 		res.Status = http.StatusInternalServerError
 		res.Message = er
@@ -324,7 +351,7 @@ func CreateOrder(order Order) (Response, error) {
 	order.Id = gen_id
 	order.OrderAt = date.Format("2006-01-02 15:04:05")
 	order.Created_at = date.Format("2006-01-02 15:04:05")
-
+	order.Status = "Accepted"
 	gen_inv, err := GenerateInvoiceNumber(con)
 
 	if err != nil {
@@ -760,6 +787,52 @@ func CreateOrder(order Order) (Response, error) {
 		res.Message = err.Error()
 		res.Data = order
 		return res, err
+	}
+	return res, nil
+}
+
+func UpdateOrderStatus(order_id string) (Response, error) {
+	var res Response
+	con := db.CreateCon()
+
+	ctx := context.Background()
+	tx, err := con.BeginTx(ctx, nil)
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = nil
+		return res, err
+	}
+
+	qry := `UPDATE smc_torder SET s_status = "InProgress" WHERE s_order_id = ?`
+
+	_, err = tx.ExecContext(ctx, qry, order_id)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Header"
+		fmt.Println(er)
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = map[string]interface{}{
+			"order_id": order_id,
+		}
+		return res, errors.New(er)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = map[string]interface{}{
+			"order_id": order_id,
+		}
+		return res, err
+	}
+
+	res.Status = http.StatusOK
+	res.Message = "success"
+	res.Data = map[string]interface{}{
+		"order_id": order_id,
 	}
 	return res, nil
 }

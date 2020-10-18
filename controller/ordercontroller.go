@@ -39,8 +39,9 @@ func CreateOrderTracking(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Bind Error : " + err.Error()})
 	}
+	waybill := c.QueryParam("waybill")
 
-	result, err := models.CreateOrderTracking(*tracking)
+	result, err := models.CreateOrderTracking(*tracking, waybill)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, result)
