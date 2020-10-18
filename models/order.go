@@ -125,6 +125,7 @@ type Order struct {
 	Invoice               string               `json:"invoice_number"`
 	OrderAt               string               `json:"order_at"`
 	CustomerId            string               `json:"customer_id"`
+	CustomerName          string               `json:"customer_name"`
 	Tax                   float64              `json:"tax"`
 	Total                 float64              `json:"total"`
 	Status                string               `json:"status"`
@@ -147,6 +148,7 @@ type Order struct {
 type OrderDelivery struct {
 	CourierId string  `json:"courier_id"`
 	Fee       float64 `json:"delivery_fee"`
+	WayBill   string  `json:"waybill"`
 }
 
 type OrderCoupon struct {
@@ -163,21 +165,127 @@ type OrderPartialBalance struct {
 }
 
 type OrderProduct struct {
-	ItemNumber int     `json:"index"`
-	ProductId  string  `json:"product_id"`
-	Qty        float64 `json:"qty"`
-	Price      float64 `json:"price"`
+	ItemNumber  int     `json:"index"`
+	ProductId   string  `json:"product_id"`
+	ProductName string  `json:"product_name"`
+	Qty         float64 `json:"qty"`
+	Price       float64 `json:"price"`
 }
 
 type OrderShippingAddress struct {
-	AddressName string `json:"name"`
-	Recipient   string `json:"recipient"`
-	PhoneNumber string `json:"phone_number"`
-	Province    string `json:"province"`
-	City        string `json:"city"`
-	SubDistrict string `json:"sub_district"`
-	PostalCode  string `json:"postal_code"`
-	Address     string `json:"address"`
+	AddressName     string `json:"name"`
+	Recipient       string `json:"recipient"`
+	PhoneNumber     string `json:"phone_number"`
+	Province        string `json:"province"`
+	ProvinceName    string `json:"province_name"`
+	City            string `json:"city"`
+	CityName        string `json:"city_name"`
+	SubDistrict     string `json:"sub_district"`
+	SubDistrictName string `json:"sub_district_name"`
+	PostalCode      string `json:"postal_code"`
+	Address         string `json:"address"`
+}
+
+type OrderTracking struct {
+	OrderId        string `json:"order_id"`
+	ItemNumber     int    `json:"index"`
+	TrackingStatus string `json:"tracking_status"`
+	Created_at     string `json:"created_at"`
+}
+
+func GetOrderTracking(orderId string) (Response, error) {
+	var res Response
+	var arrobj []OrderTracking
+	var track OrderTracking
+	con := db.CreateCon()
+
+	qry := `SELECT * FROM smc_ordertracking WHERE s_order_id = ?`
+
+	rows, err := con.Query(qry, orderId)
+	if err != nil {
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = track
+		return res, err
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&track.OrderId, &track.ItemNumber, &track.TrackingStatus, &track.Created_at)
+
+		if err != nil {
+			fmt.Println(err.Error())
+			res.Status = http.StatusInternalServerError
+			res.Message = err.Error()
+			res.Data = track
+			return res, err
+		}
+
+		arrobj = append(arrobj, track)
+
+	}
+	defer rows.Close()
+
+	res.Status = http.StatusOK
+	res.Message = "Success"
+	res.Data = arrobj
+
+	return res, nil
+}
+
+func CreateOrderTracking(track OrderTracking) (Response, error) {
+	var res Response
+	con := db.CreateCon()
+
+	ctx := context.Background()
+	tx, err := con.BeginTx(ctx, nil)
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = nil
+		return res, err
+	}
+	qry := `INSERT INTO smc_ordertracking VALUES(?, ?, ?, ?)`
+
+	index, err := CheckOrderTrackingIndex(con, track.OrderId)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Check Tracking Index"
+		fmt.Println(er)
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = track
+		return res, errors.New(er)
+	}
+
+	track.ItemNumber = index
+	track.Created_at = time.Now().Format("2006-01-02 15:04:05")
+
+	_, err = tx.ExecContext(ctx, qry, track.OrderId, track.ItemNumber, track.TrackingStatus, track.Created_at)
+
+	if err != nil {
+		tx.Rollback()
+		er := err.Error()
+		fmt.Println(er)
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = track
+		return res, errors.New(er)
+	}
+
+	res.Status = http.StatusOK
+	res.Message = "Success"
+	res.Data = track
+
+	err = tx.Commit()
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = track
+		return res, err
+	}
+
+	return res, nil
 }
 
 func CreateOrder(order Order) (Response, error) {
@@ -197,7 +305,7 @@ func CreateOrder(order Order) (Response, error) {
 
 	qry := `INSERT INTO smc_torder VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	qry_item := `INSERT INTO smc_torderproduct VALUES(?, ?, ?, ?, ?)`
-	qry_delivery := `INSERT INTO smc_torderdelivery VALUES(?, ?, ?)`
+	qry_delivery := `INSERT INTO smc_torderdelivery VALUES(?, ?, ?, ?)`
 	qry_address := `INSERT INTO smc_tordershippingaddress VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	qry_coupon := `INSERT INTO smc_tordercoupon VALUES(?, ?)`
 	qry_dropshipper := `INSERT INTO smc_torderdropshipper VALUES(?, ?, ?)`
@@ -212,9 +320,10 @@ func CreateOrder(order Order) (Response, error) {
 	}
 
 	//Order Header
+	date := time.Now()
 	order.Id = gen_id
-	order.OrderAt = time.Now().Format("2006-01-02 15:04:05")
-	order.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	order.OrderAt = date.Format("2006-01-02 15:04:05")
+	order.Created_at = date.Format("2006-01-02 15:04:05")
 
 	gen_inv, err := GenerateInvoiceNumber(con)
 
@@ -261,7 +370,7 @@ func CreateOrder(order Order) (Response, error) {
 	//End Order Item
 
 	//Order Delivery
-	_, err = tx.ExecContext(ctx, qry_delivery, order.Id, order.Delivery.CourierId, order.Delivery.Fee)
+	_, err = tx.ExecContext(ctx, qry_delivery, order.Id, order.Delivery.CourierId, order.Delivery.Fee, order.Delivery.WayBill)
 
 	if err != nil {
 		tx.Rollback()
@@ -499,7 +608,7 @@ func CreateOrder(order Order) (Response, error) {
 
 		//Expiry
 
-		mdData.Expiry.StartTime = order.OrderAt
+		mdData.Expiry.StartTime = date.Format("2006-01-02 15:04:05 +0700")
 		mdData.Expiry.Unit = "days"
 		mdData.Expiry.Duration = 1
 		//End Expiry
@@ -653,6 +762,342 @@ func CreateOrder(order Order) (Response, error) {
 		return res, err
 	}
 	return res, nil
+}
+
+func UpdateWaybillOrder(order_id int, waybill string) (Response, error) {
+	var res Response
+	con := db.CreateCon()
+
+	ctx := context.Background()
+	tx, err := con.BeginTx(ctx, nil)
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = nil
+		return res, err
+	}
+
+	qry := `UPDATE smc_torderdelivery SET s_waybill = ? WHERE s_order_id = ?`
+
+	_, err = tx.ExecContext(ctx, qry, waybill, order_id)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Header"
+		fmt.Println(er)
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = map[string]interface{}{
+			"order_id": order_id,
+			"waybill":  waybill,
+		}
+		return res, errors.New(er)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = map[string]interface{}{
+			"order_id": order_id,
+			"waybill":  waybill,
+		}
+		return res, err
+	}
+
+	res.Status = http.StatusOK
+	res.Message = "success"
+	res.Data = map[string]interface{}{
+		"order_id": order_id,
+		"waybill":  waybill,
+	}
+	return res, nil
+}
+
+func GetOrder(isAdmin bool, isMitra bool, userId string) (Response, error) {
+	var res Response
+	var arrobj []Order
+	var order Order
+	con := db.CreateCon()
+	qry := ""
+	if isAdmin {
+		qry = `SELECT A.*, CS.s_customer_name FROM smc_torder A
+		LEFT JOIN smc_customer CS on CS.s_customer_id = A.s_customer_id
+		order by A.s_order_at desc`
+	} else if isMitra {
+		qry = `SELECT A.*,CS.s_customer_name FROM smc_torder A
+		LEFT JOIN smc_torderproduct B on B.s_order_id = A.s_order_id
+		LEFT JOIN smc_product C on C.s_sku_id = B.s_sku_id
+		LEFT JOIN smc_customer CS on CS.s_customer_id = A.s_customer_id
+		WHERE C.s_user_id = '` + userId + `' order by A.s_order_at desc`
+	} else {
+		if userId != "" {
+			// fmt.Println(userId)
+			qry = `SELECT A.*, CS.s_customer_name FROM smc_torder A
+			LEFT JOIN smc_customer CS on CS.s_customer_id = A.s_customer_id
+			WHERE A.s_customer_id = '` + userId + `' order by A.s_order_at desc`
+		}
+	}
+
+	rows, err := con.Query(qry)
+	if err != nil {
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = order
+		return res, err
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&order.Id, &order.Invoice, &order.OrderAt, &order.CustomerId, &order.Tax, &order.Total, &order.Status,
+			&order.IsTakeFromStore, &order.IsDropshipper, &order.PaymentMethod, &order.Note, &order.IsUsingCoupon,
+			&order.IsUsingPartialBalance, &order.UserId, &order.Created_at, &order.CustomerName)
+
+		if err != nil {
+			fmt.Println(err.Error())
+			res.Status = http.StatusInternalServerError
+			res.Message = err.Error()
+			res.Data = order
+			return res, err
+		}
+
+		res1, err, order := GetOrderCoupon(con, order)
+		// order.Coupon = ord.Coupon
+		if err != nil {
+			return res1, err
+		}
+
+		res2, err, order := GetOrderDelivery(con, order)
+
+		if err != nil {
+			return res2, err
+		}
+
+		// res3, err, order := GetDropShipper(con, order)
+
+		// if err != nil {
+		// 	return res3, err
+		// }
+
+		// res4, err, order := GetPartialBalance(con, order)
+
+		// if err != nil {
+		// 	return res4, err
+		// }
+
+		res5, err, order := GetOrderProduct(con, order)
+
+		if err != nil {
+			return res5, err
+		}
+
+		res6, err, order := GetOrderShippingAddress(con, order)
+
+		if err != nil {
+			return res6, err
+		}
+
+		arrobj = append(arrobj, order)
+
+	}
+	defer rows.Close()
+
+	res.Status = http.StatusOK
+	res.Message = "Success"
+	res.Data = arrobj
+
+	return res, nil
+}
+
+func GetOrderShippingAddress(con *sql.DB, order Order) (Response, error, Order) {
+	var res Response
+	var shipp OrderShippingAddress
+
+	qry := `SELECT A.s_address_name, A.s_recipient, A.s_phone_number, A.s_province, B.s_name as 's_province_name', 
+	A.s_city, C.s_name as 's_city_name', A.s_sub_district, D.s_name as 's_sub_district_name',
+	A.s_postal_code, A.s_address FROM smc_tordershippingaddress A
+	LEFT JOIN smc_province B on B.s_province_id = A.s_province
+	LEFT JOIN smc_city C on C.s_city_id = A.s_city
+	LEFT JOIN smc_subdistrict D on D.s_subdistrict_id = A.s_sub_district
+	WHERE A.s_order_id = ?`
+
+	rows, err := con.Query(qry, order.Id)
+
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = "GetOrderShippingAddress - qry - " + strconv.Itoa(order.Id) + " - " + err.Error()
+		res.Data = Order{}
+		return res, err, order
+	}
+
+	for rows.Next() {
+		err := rows.Scan(&shipp.AddressName, &shipp.Recipient, &shipp.PhoneNumber, &shipp.Province, &shipp.ProvinceName,
+			&shipp.City, &shipp.CityName, &shipp.SubDistrict, &shipp.SubDistrictName, &shipp.PostalCode, &shipp.Address)
+
+		if err != nil {
+			fmt.Println(err.Error() + " - " + strconv.Itoa(order.Id))
+			res.Status = http.StatusInternalServerError
+			res.Message = "GetOrderShippingAddress - scn - " + strconv.Itoa(order.Id) + " - " + err.Error()
+			res.Data = Order{}
+			return res, err, order
+		}
+
+		order.ShippingAddress.AddressName = shipp.AddressName
+		order.ShippingAddress.Recipient = shipp.Recipient
+		order.ShippingAddress.PhoneNumber = shipp.PhoneNumber
+		order.ShippingAddress.Province = shipp.Province
+		order.ShippingAddress.ProvinceName = shipp.ProvinceName
+		order.ShippingAddress.City = shipp.City
+		order.ShippingAddress.CityName = shipp.CityName
+		order.ShippingAddress.SubDistrict = shipp.SubDistrict
+		order.ShippingAddress.SubDistrictName = shipp.SubDistrictName
+		order.ShippingAddress.PostalCode = shipp.PostalCode
+		order.ShippingAddress.Address = shipp.Address
+	}
+	defer rows.Close()
+
+	return res, nil, order
+}
+
+func GetOrderProduct(con *sql.DB, order Order) (Response, error, Order) {
+	var res Response
+	var product OrderProduct
+
+	qry := `SELECT A.s_item_number,A.s_sku_id,B.s_name,A.s_qty,A.s_price FROM smc_torderproduct A
+	LEFT JOIN smc_product B on B.s_sku_id = A.s_sku_id
+	WHERE A.s_order_id = ?`
+
+	rows, err := con.Query(qry, order.Id)
+
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = "GetOrderProduct - qry - " + strconv.Itoa(order.Id) + " - " + err.Error()
+		res.Data = Order{}
+		return res, err, order
+	}
+
+	for rows.Next() {
+		err := rows.Scan(&product.ItemNumber, &product.ProductId, &product.ProductName, &product.Qty, &product.Price)
+
+		if err != nil {
+			fmt.Println(err.Error() + " - " + strconv.Itoa(order.Id))
+			res.Status = http.StatusInternalServerError
+			res.Message = "GetOrderProduct - scn - " + strconv.Itoa(order.Id) + " - " + err.Error()
+			res.Data = Order{}
+			return res, err, order
+		}
+
+		order.Item = append(order.Item, product)
+	}
+	defer rows.Close()
+
+	return res, nil, order
+}
+
+func GetOrderDelivery(con *sql.DB, order Order) (Response, error, Order) {
+	var res Response
+	var delivery OrderDelivery
+
+	qry := `SELECT s_courier_id,s_delivery_fee,s_waybill FROM smc_torderdelivery WHERE s_order_id = ?`
+
+	rows, err := con.Query(qry, order.Id)
+
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = "GetOrderDelivery - qry - " + strconv.Itoa(order.Id) + " - " + err.Error()
+		res.Data = Order{}
+		return res, err, order
+	}
+
+	for rows.Next() {
+		err := rows.Scan(&delivery.CourierId, &delivery.Fee, &delivery.WayBill)
+
+		if err != nil {
+			fmt.Println(err.Error() + " - " + strconv.Itoa(order.Id))
+			res.Status = http.StatusInternalServerError
+			res.Message = "GetOrderDelivery - scn - " + strconv.Itoa(order.Id) + " - " + err.Error()
+			res.Data = Order{}
+			return res, err, order
+		}
+
+		order.Delivery.CourierId = delivery.CourierId
+		order.Delivery.Fee = delivery.Fee
+		order.Delivery.WayBill = delivery.WayBill
+	}
+	defer rows.Close()
+
+	return res, nil, order
+}
+
+func GetOrderCoupon(con *sql.DB, order Order) (Response, error, Order) {
+	var res Response
+	var coupon OrderCoupon
+
+	qry := `SELECT s_coupon_code FROM smc_tordercoupon WHERE s_order_id = ?`
+
+	rows, err := con.Query(qry, order.Id)
+
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = "GetOrderCoupon - qry - " + strconv.Itoa(order.Id) + " - " + err.Error()
+		res.Data = Order{}
+		return res, err, order
+	}
+
+	for rows.Next() {
+		err := rows.Scan(&coupon.CouponCode)
+
+		if err != nil {
+			fmt.Println(err.Error() + " - " + strconv.Itoa(order.Id))
+			res.Status = http.StatusInternalServerError
+			res.Message = "GetOrderCoupon - scn - " + strconv.Itoa(order.Id) + " - " + err.Error()
+			res.Data = Order{}
+			return res, err, order
+		}
+
+		order.Coupon.CouponCode = coupon.CouponCode
+	}
+	defer rows.Close()
+
+	return res, nil, order
+}
+
+func CheckOrderTrackingIndex(con *sql.DB, order_id string) (int, error) {
+	var idx int
+	var gen_id int
+	var orderId string
+	var isExist bool
+
+	qry_chck := "SELECT s_order_id FROM smc_ordertracking WHERE s_order_id = ?"
+
+	err := con.QueryRow(qry_chck, order_id).Scan(&orderId)
+
+	if err == sql.ErrNoRows {
+		isExist = false
+	} else {
+		isExist = true
+	}
+
+	qry := `SELECT IFNULL(max(s_item_number),0) as 's_item_number' FROM smc_ordertracking WHERE s_order_id = ?`
+
+	rows, err := con.Query(qry, order_id)
+
+	if err != nil {
+		return 0, err
+	}
+	for rows.Next() {
+		err := rows.Scan(&gen_id)
+
+		if err != nil {
+			return 0, err
+		}
+
+		if isExist {
+			idx = gen_id + 1
+
+		}
+	}
+
+	return idx, err
 }
 
 func GenerateOrderId(con *sql.DB) (int, error) {

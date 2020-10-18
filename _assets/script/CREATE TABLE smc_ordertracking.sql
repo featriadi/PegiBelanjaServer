@@ -1,0 +1,1 @@
+CREATE TABLE `pb_dev`.`smc_ordertracking` ( `s_order_id` VARCHAR(50) NOT NULL ,  `s_item_number` SMALLINT NOT NULL ,  `s_tracking_status` VARCHAR(100) NOT NULL ,  `s_created_at` DATETIME NOT NULL ,    PRIMARY KEY  (`s_order_id`, `s_item_number`)) ENGINE = InnoDB;

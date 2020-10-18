@@ -70,7 +70,7 @@ func UpdateCart(cart Cart) (Response, error) {
 
 	qry := `UPDATE smc_cart set s_sku_id = ?, s_variant_id = ?, s_qty = ?, s_price = ? WHERE s_customer_id = ?`
 
-	cart.Added_at = time.Now().String()
+	cart.Added_at = time.Now().Format("2006-01-02 15:04:05")
 	_, err = tx.ExecContext(ctx, qry, cart.ProductId, cart.VariantId, cart.Qty, cart.Price, cart.CustomerId)
 
 	if err != nil {
@@ -113,7 +113,7 @@ func CreateCart(cart Cart) (Response, error) {
 
 	qry := `INSERT INTO smc_cart VALUES(?, ?, ?, ?, ?, ?, ?)`
 
-	cart.Added_at = time.Now().String()
+	cart.Added_at = time.Now().Format("2006-01-02 15:04:05")
 	_, err = tx.ExecContext(ctx, qry, cart.CartId, cart.CustomerId, cart.ProductId, cart.VariantId, cart.Qty, cart.Price, cart.Added_at)
 
 	if err != nil {

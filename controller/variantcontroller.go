@@ -29,8 +29,8 @@ func StoreVariant(c echo.Context) error {
 	// variant.Id = c.FormValue("variant_id")
 	variant.Name = c.FormValue("name")
 	variant.UserId = c.FormValue("user_id")
-	variant.Created_at = time.Now().String()
-	variant.Modified_at = time.Now().String()
+	variant.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	variant.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := models.StoreVariantData(variant)
 
@@ -50,8 +50,8 @@ func UpdateVariant(c echo.Context) error {
 	variant.Id = c.Param("id")
 	variant.Name = c.FormValue("name")
 	variant.UserId = c.FormValue("user_id")
-	variant.Created_at = time.Now().String()
-	variant.Modified_at = time.Now().String()
+	variant.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	variant.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := models.UpdateVariant(variant)
 

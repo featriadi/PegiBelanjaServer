@@ -21,9 +21,9 @@ func StoreUser(c echo.Context) error {
 	user.UserRole = c.FormValue("user_role")
 	user.IsVerified, _ = strconv.ParseBool(c.FormValue("verified"))
 	user.UserCreated = c.FormValue("user_created")
-	user.Created_at = time.Now().String()
-	user.Modified_at = time.Now().String()
-	user.LastLogin = time.Now().String()
+	user.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	user.Modified_at = time.Now().Format("2006-01-02 15:04:05")
+	user.LastLogin = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := models.StoreUserData(user)
 

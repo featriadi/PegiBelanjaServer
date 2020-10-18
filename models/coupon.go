@@ -85,8 +85,8 @@ func StoreCouponData(coupon Coupon) (Response, error) {
 		return res, err
 	}
 
-	coupon.Created_at = time.Now().String()
-	coupon.Modified_at = time.Now().String()
+	coupon.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	coupon.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	qry := "INSERT INTO smc_coupon VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
@@ -160,7 +160,7 @@ func UpdateCouponData(coupon Coupon) (Response, error) {
 		return res, err
 	}
 
-	coupon.Modified_at = time.Now().String()
+	coupon.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	qry := `UPDATE smc_coupon SET s_coupon_code = ?, s_discount_type = ?, s_discount_value = ?, s_expired_date = ?,
 	s_minimum_amount = ?, s_maximal_order = ?, s_description = ?, s_usage_limit = ?, s_usage_limit_per_customer = ?,

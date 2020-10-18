@@ -508,8 +508,8 @@ func StoreProductData(product Product, is_mitra bool) (Response, error) {
 	qry_wholesale := "INSERT INTO smc_productwholesaleprice VALUES(?, ?, ?, ?)"
 
 	//Product Header
-	product.Created_at = time.Now().String()
-	product.Modified_at = time.Now().String()
+	product.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	product.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	_, err = tx.ExecContext(ctx, qry, product.Id, product.Name, product.CategoryId, product.Description, product.MinOrder,
 		product.IsVariant, product.IsDiscount, product.IsReadyStock, product.IsWholesalePrice, product.PublishStatus,
@@ -601,7 +601,7 @@ func StoreProductData(product Product, is_mitra bool) (Response, error) {
 	var app = new(Approved)
 	app.ObjectId = ObjectId
 	app.Id = product.Id
-	app.Approved_at = time.Now().String()
+	app.Approved_at = time.Now().Format("2006-01-02 15:04:05")
 	app.UserId = product.UserId
 	if is_mitra {
 		app.Status = "NOT_VERIFIED"
@@ -652,7 +652,7 @@ func UpdateVerified(product Product) (Response, error) {
 	}
 
 	qry := `UPDATE smc_product SET s_publish_status = ?, s_modified_at = ? WHERE s_sku_id = ?`
-	product.Modified_at = time.Now().String()
+	product.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := tx.ExecContext(ctx, qry, product.PublishStatus, product.Modified_at, product.Id)
 
@@ -670,7 +670,7 @@ func UpdateVerified(product Product) (Response, error) {
 	var app = new(Approved)
 	app.ObjectId = ObjectId
 	app.Id = product.Id
-	app.Approved_at = time.Now().String()
+	app.Approved_at = time.Now().Format("2006-01-02 15:04:05")
 	app.Status = "VERIFIED"
 	app.UserId = product.UserId
 
@@ -763,7 +763,7 @@ func UpdateProductData(product Product, param_id string) (Response, error) {
 	qry_discount := "INSERT INTO smc_productdiscount VALUES(?, ?)"
 	qry_wholesale := "INSERT INTO smc_productwholesaleprice VALUES(?, ?, ?, ?)"
 
-	product.Modified_at = time.Now().String()
+	product.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := tx.ExecContext(ctx, qry, product.Id, product.Name, product.CategoryId, product.Description, product.MinOrder,
 		product.IsVariant, product.IsDiscount, product.IsReadyStock, product.IsWholesalePrice, product.PublishStatus,

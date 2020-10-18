@@ -1,0 +1,1 @@
+ALTER TABLE `smc_torderdelivery` ADD `s_waybill` VARCHAR(50) NOT NULL AFTER `s_delivery_fee`;

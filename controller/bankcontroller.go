@@ -30,8 +30,8 @@ func StoreBank(c echo.Context) error {
 	bank.Owner = c.FormValue("owner")
 	bank.AccountNumber = c.FormValue("account_number")
 	bank.UserId = c.FormValue("user_id")
-	bank.Created_at = time.Now().String()
-	bank.Modified_at = time.Now().String()
+	bank.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	bank.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := models.StoreBank(bank)
 
@@ -53,8 +53,8 @@ func UpdateBank(c echo.Context) error {
 	bank.Owner = c.FormValue("owner")
 	bank.AccountNumber = c.FormValue("account_number")
 	bank.UserId = c.FormValue("user_id")
-	bank.Created_at = time.Now().String()
-	bank.Modified_at = time.Now().String()
+	bank.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	bank.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := models.UpdateBank(bank, param_id)
 

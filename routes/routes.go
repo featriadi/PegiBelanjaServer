@@ -120,6 +120,10 @@ func Init() *echo.Echo {
 	//Order
 	e.POST("/order/create", controller.CreateOrder)
 	e.GET("/order/get/transaction/status/:order_id", controller.GetTransactionStatus)
+	e.GET("/order/get", controller.GetOrderData)
+	e.POST("/order/tracking/create", controller.CreateOrderTracking)
+	e.GET("/order/tracking/get/:order_id", controller.GetOrderTracking)
+	e.PUT("/order/update/waybill/:order_id", controller.UpdateWaybillOrder)
 	//End Order
 
 	//Stock

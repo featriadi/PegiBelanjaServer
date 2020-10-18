@@ -42,8 +42,8 @@ func StoreBanner(c echo.Context) error {
 	banner.Link = c.FormValue("link")
 	banner.ImageData = filedir
 	banner.UserId = c.FormValue("user_id")
-	banner.Created_at = time.Now().String()
-	banner.Modified_at = time.Now().String()
+	banner.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	banner.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := models.StoreBanner(banner)
 
@@ -117,8 +117,8 @@ func UpdateBanner(c echo.Context) error {
 	banner.Link = c.FormValue("link")
 	banner.ImageData = filedir
 	banner.UserId = c.FormValue("user_id")
-	banner.Created_at = time.Now().String()
-	banner.Modified_at = time.Now().String()
+	banner.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	banner.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := models.UpdateBanner(banner, param_id)
 
