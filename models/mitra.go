@@ -264,9 +264,9 @@ func StoreMitraAndRegisterUser(mitra Mitra, password string) (Response, error) {
 	user.UserRole = "MIT"
 	user.IsVerified = false
 	user.RememberMe = "0"
-	user.Created_at = time.Now().String()
-	user.Modified_at = time.Now().String()
-	user.LastLogin = time.Now().String()
+	user.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	user.Modified_at = time.Now().Format("2006-01-02 15:04:05")
+	user.LastLogin = time.Now().Format("2006-01-02 15:04:05")
 
 	resUser, errUser := StoreUserData(user)
 
@@ -350,7 +350,7 @@ func UpdateMitra(mitra Mitra, id string) (Response, error) {
 
 	qry_address := `INSERT INTO smc_mitraaddress VALUES(?, ?, ?, ?, ?, ?, ?)`
 
-	mitra.Modified_at = time.Now().String()
+	mitra.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	//Mitra Header
 	result, err := tx.ExecContext(ctx, qry, mitra.Name, mitra.PhoneNumber, mitra.Email,

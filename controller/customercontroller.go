@@ -83,8 +83,8 @@ func StoreCustomerWithUser(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Bind Error : " + err.Error()})
 	}
 
-	cust.Created_at = time.Now().String()
-	cust.Modified_at = time.Now().String()
+	cust.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	cust.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	//Bind To User Data
 	err = json.Unmarshal(bodyBytes, &user)

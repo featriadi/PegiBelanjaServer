@@ -66,8 +66,8 @@ func StoreMitraWithUser(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Bind Error : " + err.Error()})
 	}
 
-	mitra.Created_at = time.Now().String()
-	mitra.Modified_at = time.Now().String()
+	mitra.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	mitra.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	//Bind To User Data
 	err = json.Unmarshal(bodyBytes, &user)

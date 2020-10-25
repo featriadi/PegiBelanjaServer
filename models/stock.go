@@ -42,7 +42,7 @@ func CreateStockInAndOut(stock Stock, isIn bool) (Response, error) {
 		stock.Status = Out
 	}
 
-	stock.Created_at = time.Now().String()
+	stock.Created_at = time.Now().Format("2006-01-02 15:04:05")
 
 	_, err = tx.ExecContext(ctx, qry, stock.ProductId, stock.Status, stock.Qty, stock.UserId, stock.Created_at)
 

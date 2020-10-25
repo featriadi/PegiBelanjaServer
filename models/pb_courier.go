@@ -76,8 +76,8 @@ func StorePBCourier(pb_courier PBCourier) (Response, error) {
 		return res, err
 	}
 
-	pb_courier.Created_at = time.Now().String()
-	pb_courier.Modified_at = time.Now().String()
+	pb_courier.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	pb_courier.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	qry := `INSERT INTO smc_pb_courier VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
@@ -148,7 +148,7 @@ func UpdatePBCourier(pb_courier PBCourier) (Response, error) {
 		return res, err
 	}
 
-	pb_courier.Modified_at = time.Now().String()
+	pb_courier.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	qry := `UPDATE smc_pb_courier SET s_province = ?, s_city = ?, s_sub_district = ?, s_price = ?, s_is_free_delivery = ?, 
 			s_user_id = ?, s_modified_at = ? WHERE s_id = ?`

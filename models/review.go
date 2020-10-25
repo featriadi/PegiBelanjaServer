@@ -131,7 +131,7 @@ func CreateReview(review Review) (Response, error) {
 	}
 
 	review.Id = strconv.Itoa(gen_id)
-	review.Created_at = time.Now().String()
+	review.Created_at = time.Now().Format("2006-01-02 15:04:05")
 	_, err = tx.ExecContext(ctx, qry, review.Id, review.Content, review.Rating, review.ProductId, review.CustomerId, review.Created_at)
 
 	if err != nil {

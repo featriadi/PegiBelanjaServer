@@ -101,8 +101,8 @@ func StoreCourier(courier Courier) (Response, error) {
 		return res, err
 	}
 
-	courier.Created_at = time.Now().String()
-	courier.Modified_at = time.Now().String()
+	courier.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	courier.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	qry := `INSERT INTO smc_courier VALUES (?, ?, ?, ?, ?, ?)`
 
@@ -168,7 +168,7 @@ func UpdateCourier(courier Courier, param_id string) (Response, error) {
 		return res, err
 	}
 
-	courier.Modified_at = time.Now().String()
+	courier.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	qry := `UPDATE smc_courier SET s_courier_id = ?, s_name = ?, s_is_active = ?, s_user_id = ?, s_modified_at = ? WHERE s_courier_id = ?`
 

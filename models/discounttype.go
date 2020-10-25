@@ -73,8 +73,8 @@ func StoreDiscountType(discType DiscountType) (Response, error) {
 		return res, err
 	}
 
-	discType.Created_at = time.Now().String()
-	discType.Modified_at = time.Now().String()
+	discType.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	discType.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	qry := "INSERT INTO smc_discounttype VALUES(?, ?, ?, ?, ?)"
 
@@ -145,7 +145,7 @@ func UpdateDiscountTypeData(discType DiscountType) (Response, error) {
 		return res, err
 	}
 
-	discType.Modified_at = time.Now().String()
+	discType.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	qry := `UPDATE smc_discounttype SET s_discount_type_name = ?, s_user_id = ?, s_modified_at = ?
 			WHERE s_discount_type_id = ?`

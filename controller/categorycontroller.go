@@ -29,8 +29,8 @@ func StoreCategory(c echo.Context) error {
 	cat.Id = c.FormValue("category_id")
 	cat.Name = c.FormValue("name")
 	cat.UserId = c.FormValue("user_id")
-	cat.Created_at = time.Now().String()
-	cat.Modified_at = time.Now().String()
+	cat.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	cat.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := models.StoreCategory(cat)
 
@@ -49,8 +49,8 @@ func UpdateCategory(c echo.Context) error {
 	cat.Id = c.FormValue("category_id")
 	cat.Name = c.FormValue("name")
 	cat.UserId = c.FormValue("user_id")
-	cat.Created_at = time.Now().String()
-	cat.Modified_at = time.Now().String()
+	cat.Created_at = time.Now().Format("2006-01-02 15:04:05")
+	cat.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := models.UpdateCategory(cat, param_id)
 
