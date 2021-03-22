@@ -10,7 +10,7 @@ import (
 )
 
 type Cart struct {
-	CartId     string  `json:"cart_id"`
+	CartId     int     `json:"cart_id"`
 	CustomerId string  `json:"customer_id"`
 	ProductId  string  `json:"sku_id"`
 	VariantId  string  `json:"variant_id"`

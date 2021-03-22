@@ -146,9 +146,10 @@ type Order struct {
 }
 
 type OrderDelivery struct {
-	CourierId string  `json:"courier_id"`
-	Fee       float64 `json:"delivery_fee"`
-	WayBill   string  `json:"waybill"`
+	TimeDeliveryId   string  `json:"time_delivery_id"`
+	TimeDeliveryName string  `json:"time_delivery_name"`
+	Fee              float64 `json:"delivery_fee"`
+	WayBill          string  `json:"waybill"`
 }
 
 type OrderCoupon struct {
@@ -165,11 +166,14 @@ type OrderPartialBalance struct {
 }
 
 type OrderProduct struct {
-	ItemNumber  int     `json:"index"`
-	ProductId   string  `json:"product_id"`
-	ProductName string  `json:"product_name"`
-	Qty         float64 `json:"qty"`
-	Price       float64 `json:"price"`
+	ItemNumber     int     `json:"index"`
+	ProductId      string  `json:"product_id"`
+	ProductName    string  `json:"product_name"`
+	Qty            float64 `json:"qty"`
+	Price          float64 `json:"price"`
+	VariantId      string  `json:"variant_id"`
+	VariantName    string  `json:"variant_name"`
+	VariantContent string  `json:"variant_content"`
 }
 
 type OrderShippingAddress struct {
@@ -191,6 +195,147 @@ type OrderTracking struct {
 	ItemNumber     int    `json:"index"`
 	TrackingStatus string `json:"tracking_status"`
 	Created_at     string `json:"created_at"`
+}
+
+func GetOrderStats() (Response, error) {
+	var res Response
+	var total int
+	var totalMonth int
+
+	con := db.CreateCon()
+
+	res1, err, total := GetOrderStatsTotal(con)
+	if err != nil {
+		return res1, err
+	}
+
+	res2, err, totalMonth := GetOrderStatsByMonth(con)
+	if err != nil {
+		return res2, err
+	}
+
+	res.Status = http.StatusOK
+	res.Message = "Success"
+	res.Data = map[string]interface{}{
+		"total":       total,
+		"total_month": totalMonth,
+	}
+
+	return res, nil
+}
+
+func GetOrderStatsTotal(con *sql.DB) (Response, error, int) {
+	var res Response
+	var total int
+
+	qry := `SELECT (sum(s_total) + sum(s_tax)) as 'total' FROM smc_torder where s_status = 'Finish'`
+
+	rows, err := con.Query(qry)
+
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = "GetOrderStatsTotal - qry - " + err.Error()
+		res.Data = nil
+		return res, err, 0
+	}
+
+	for rows.Next() {
+		err := rows.Scan(&total)
+
+		if err != nil {
+			res.Status = http.StatusInternalServerError
+			res.Message = "GetOrderStatsByMonth - scn - " + err.Error()
+			res.Data = nil
+			return res, err, 0
+		}
+	}
+	defer rows.Close()
+
+	return res, nil, total
+}
+
+func GetOrderStatsByMonth(con *sql.DB) (Response, error, int) {
+	var res Response
+	var totalMonth int
+
+	qry := `SELECT IFNULL((sum(s_total) + sum(s_tax)), 0) as 'total' FROM smc_torder 
+	WHERE s_status = 'Finish' and month(s_order_at) = ? and year(s_order_at) = ?`
+
+	rows, err := con.Query(qry, int(time.Now().Month()), time.Now().Year())
+
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = "GetOrderStatsByMonth - qry - " + err.Error()
+		res.Data = nil
+		return res, err, 0
+	}
+
+	for rows.Next() {
+		err := rows.Scan(&totalMonth)
+
+		if err != nil {
+			res.Status = http.StatusInternalServerError
+			res.Message = "GetOrderStatsByMonth - scn - " + err.Error()
+			res.Data = nil
+			return res, err, 0
+		}
+	}
+	defer rows.Close()
+
+	return res, nil, totalMonth
+}
+
+func GetTransactionStatus(order_id string) (Response, error) {
+	conf := config.GetConfig()
+	var res Response
+
+	// url := "https://api.sandbox.midtrans.com/v2/" + order_id + "/status"
+	url := "https://api.midtrans.com/v2/" + order_id + "/status"
+	// str := base64.StdEncoding.EncodeToString([]byte(conf.MIDTRANS_SERVER_KEY_SANDBOX))
+	str := base64.StdEncoding.EncodeToString([]byte(conf.MIDTRANS_SERVER_KEY))
+
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Basic "+str)
+
+	if err != nil {
+		// fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = "Request Error " + err.Error()
+		res.Data = nil
+		return res, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = "Response Error " + err.Error()
+		res.Data = nil
+		return res, err
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = "Body Read Error " + err.Error()
+		res.Data = nil
+		return res, err
+	}
+
+	var gdat map[string]interface{}
+	if err := json.Unmarshal(body, &gdat); err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = "UnMarshal Error " + err.Error()
+		res.Data = nil
+		return res, err
+	}
+
+	res.Status = http.StatusOK
+	res.Message = "Request Success"
+	res.Data = gdat
+	return res, nil
 }
 
 func GetOrderTracking(orderId string) (Response, error) {
@@ -274,7 +419,7 @@ func CreateOrderTracking(track OrderTracking, waybill string) (Response, error) 
 			res.Data = track
 			return res2, err
 		}
-		track.TrackingStatus = track.TrackingStatus + " (" + order.Delivery.CourierId + " - " + waybill + ")"
+		track.TrackingStatus = track.TrackingStatus + " (" + order.Delivery.TimeDeliveryId + " - " + waybill + ")"
 	}
 
 	_, err = tx.ExecContext(ctx, qry, track.OrderId, track.ItemNumber, track.TrackingStatus, track.Created_at)
@@ -289,15 +434,28 @@ func CreateOrderTracking(track OrderTracking, waybill string) (Response, error) 
 		return res, errors.New(er)
 	}
 
-	_, err1 := UpdateOrderStatus(track.OrderId)
-	if err != nil {
-		tx.Rollback()
-		er := err1.Error()
-		fmt.Println(er)
-		res.Status = http.StatusInternalServerError
-		res.Message = er
-		res.Data = track
-		return res, errors.New(er)
+	if track.TrackingStatus == "Pesanan Selesai" {
+		_, err1 := UpdateOrderStatus(track.OrderId, "Finish")
+		if err != nil {
+			tx.Rollback()
+			er := err1.Error()
+			fmt.Println(er)
+			res.Status = http.StatusInternalServerError
+			res.Message = er
+			res.Data = track
+			return res, errors.New(er)
+		}
+	} else {
+		_, err1 := UpdateOrderStatus(track.OrderId, "InProgress")
+		if err != nil {
+			tx.Rollback()
+			er := err1.Error()
+			fmt.Println(er)
+			res.Status = http.StatusInternalServerError
+			res.Message = er
+			res.Data = track
+			return res, errors.New(er)
+		}
 	}
 
 	res.Status = http.StatusOK
@@ -331,7 +489,7 @@ func CreateOrder(order Order) (Response, error) {
 	}
 
 	qry := `INSERT INTO smc_torder VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	qry_item := `INSERT INTO smc_torderproduct VALUES(?, ?, ?, ?, ?)`
+	qry_item := `INSERT INTO smc_torderproduct VALUES(?, ?, ?, ?, ?, ?, ?)`
 	qry_delivery := `INSERT INTO smc_torderdelivery VALUES(?, ?, ?, ?)`
 	qry_address := `INSERT INTO smc_tordershippingaddress VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	qry_coupon := `INSERT INTO smc_tordercoupon VALUES(?, ?)`
@@ -382,7 +540,7 @@ func CreateOrder(order Order) (Response, error) {
 		item := order.Item[idx]
 		item.ItemNumber = idx
 
-		_, err := tx.ExecContext(ctx, qry_item, order.Id, item.ItemNumber, item.ProductId, item.Qty, item.Price)
+		_, err := tx.ExecContext(ctx, qry_item, order.Id, item.ItemNumber, item.ProductId, item.Qty, item.Price, item.VariantId, item.VariantContent)
 
 		if err != nil {
 			tx.Rollback()
@@ -397,7 +555,7 @@ func CreateOrder(order Order) (Response, error) {
 	//End Order Item
 
 	//Order Delivery
-	_, err = tx.ExecContext(ctx, qry_delivery, order.Id, order.Delivery.CourierId, order.Delivery.Fee, order.Delivery.WayBill)
+	_, err = tx.ExecContext(ctx, qry_delivery, order.Id, order.Delivery.TimeDeliveryId, order.Delivery.Fee, order.Delivery.WayBill)
 
 	if err != nil {
 		tx.Rollback()
@@ -473,313 +631,346 @@ func CreateOrder(order Order) (Response, error) {
 	}
 	//End Order Partial Balance
 
-	if !order.IsTakeFromStore {
-		//Prepare Data For Midtrans
-		var mdData = new(MidtransOrder)
+	// if !order.IsTakeFromStore {
+	//Prepare Data For Midtrans
+	var mdData = new(MidtransOrder)
 
-		//Transaction Details
-		mdData.TransactionDetails.OrderId = strconv.Itoa(order.Id)
-		mdData.TransactionDetails.GrossAmount = order.Total
-		//End Transaction Details
+	//Transaction Details
+	mdData.TransactionDetails.OrderId = strconv.Itoa(order.Id)
+	mdData.TransactionDetails.GrossAmount = order.Total
+	//End Transaction Details
 
-		//Item Details
-		//------------------------1
-		//Courier
-		for idx := range order.Item {
-			item := order.Item[idx]
-			var mdItemData MidtransItemDetails
-			var product Product
-			product, err = GetProductById(item.ProductId)
-
-			if err != nil {
-				tx.Rollback()
-				er := err.Error() + " - Prepare Midtrans Item Detail (Get Product)"
-				res.Status = http.StatusInternalServerError
-				res.Message = er
-				res.Data = order
-				return res, errors.New(er)
-			}
-
-			category, err := GetCategoryById(product.CategoryId)
-
-			if err != nil {
-				tx.Rollback()
-				er := err.Error() + " - Prepare Midtrans Item Detail (Get Category)"
-				res.Status = http.StatusInternalServerError
-				res.Message = er
-				res.Data = order
-				return res, errors.New(er)
-			}
-
-			mdItemData.Id = item.ProductId
-			mdItemData.Price = item.Price
-			mdItemData.Qty = item.Qty
-			mdItemData.Name = product.Name
-			mdItemData.Brand = ""
-			mdItemData.Category = category.Name
-			mdItemData.MerchantName = ""
-
-			mdData.ItemDetails = append(mdData.ItemDetails, mdItemData)
-		}
-		//End
-		//------------------------
-		//Delivery Fee
+	//Item Details
+	//------------------------1
+	//Courier
+	for idx := range order.Item {
+		item := order.Item[idx]
 		var mdItemData MidtransItemDetails
-		// var courier Courier
-		// courier, err = GetCourierById(order.Delivery.CourierId)
-		// if err != nil {
-		// 	tx.Rollback()
-		// 	er := err.Error() + " - Prepare Midtrans Item Detail (Get Courier)"
-		// 	res.Status = http.StatusInternalServerError
-		// 	res.Message = er
-		// 	res.Data = order
-		// 	return res, errors.New(er)
-		// }
-
-		mdItemData.Id = order.Delivery.CourierId
-		mdItemData.Price = order.Delivery.Fee
-		mdItemData.Qty = 1
-		mdItemData.Name = order.Delivery.CourierId + " - Delivery"
-		mdItemData.Brand = order.Delivery.CourierId
-		mdItemData.Category = "COURIER"
-		mdItemData.MerchantName = ""
-
-		mdData.ItemDetails = append(mdData.ItemDetails, mdItemData)
-
-		//End Delivery Fee
-
-		//End Item Details
-
-		//Customer Details
-		param_custId, err := strconv.Atoi(order.CustomerId)
+		var product Product
+		product, err = GetProductById(item.ProductId)
 
 		if err != nil {
 			tx.Rollback()
-			er := err.Error() + " - Prepare Midtrans Customer Details (Convert Cust Id)"
+			er := err.Error() + " - Prepare Midtrans Item Detail (Get Product)"
 			res.Status = http.StatusInternalServerError
 			res.Message = er
 			res.Data = order
 			return res, errors.New(er)
 		}
 
-		cust, err := GetCustomerById(param_custId)
+		category, err := GetCategoryById(product.CategoryId)
+
 		if err != nil {
 			tx.Rollback()
-			er := err.Error() + " - Prepare Midtrans Customer Details (Get Customer)"
+			er := err.Error() + " - Prepare Midtrans Item Detail (Get Category)"
 			res.Status = http.StatusInternalServerError
 			res.Message = er
 			res.Data = order
 			return res, errors.New(er)
 		}
 
-		city, err := GetCityByIdData(order.ShippingAddress.City)
-		if err != nil {
-			tx.Rollback()
-			er := err.Error() + " - Prepare Midtrans Customer Details (Get City)"
-			res.Status = http.StatusInternalServerError
-			res.Message = er
-			res.Data = order
-			return res, errors.New(er)
-		}
-
-		mdData.CustomerDetails.FirstName = cust.Name
-		mdData.CustomerDetails.LastName = ""
-		mdData.CustomerDetails.Email = cust.Email
-		mdData.CustomerDetails.Phone = cust.PhoneNumber
-
-		mdData.CustomerDetails.BillingAddress.FirstName = cust.Name
-		mdData.CustomerDetails.BillingAddress.LastName = ""
-		mdData.CustomerDetails.BillingAddress.Email = cust.Email
-		mdData.CustomerDetails.BillingAddress.Phone = order.ShippingAddress.PhoneNumber
-		mdData.CustomerDetails.BillingAddress.Address = order.ShippingAddress.Address
-		mdData.CustomerDetails.BillingAddress.City = city.Name
-		mdData.CustomerDetails.BillingAddress.PostalCode = order.ShippingAddress.PostalCode
-		mdData.CustomerDetails.BillingAddress.CountryCode = "IDN"
-
-		mdData.CustomerDetails.ShippingAddress.FirstName = cust.Name
-		mdData.CustomerDetails.ShippingAddress.LastName = ""
-		mdData.CustomerDetails.ShippingAddress.Email = cust.Email
-		mdData.CustomerDetails.ShippingAddress.Phone = order.ShippingAddress.PhoneNumber
-		mdData.CustomerDetails.ShippingAddress.Address = order.ShippingAddress.Address
-		mdData.CustomerDetails.ShippingAddress.City = city.Name
-		mdData.CustomerDetails.ShippingAddress.PostalCode = order.ShippingAddress.PostalCode
-		mdData.CustomerDetails.ShippingAddress.CountryCode = "IDN"
-		//End Customer Details
-
-		//Enabled Payment
-		mdData.EnabledPayment = []string{"echannel", "bni_va"}
-		//End Enabled Payment
-
-		//BCA VA
-		var freetextInq MidtransBCAVAFreeTextInquiry
-		var freetextPay MidtransBCAVAFreeTextPayment
-		// mdData.BCAVA.VANumber = "12345678911"
-		// mdData.BCAVA.SubCompanyCode = "00000"
-
-		freetextInq.EN = ""
-		freetextInq.ID = ""
-
-		freetextPay.EN = ""
-		freetextPay.ID = ""
-		// mdData.BCAVA.FreeText.Inquiry = append(mdData.BCAVA.FreeText.Inquiry, freetextInq)
-		// mdData.BCAVA.FreeText.Payment = append(mdData.BCAVA.FreeText.Payment, freetextPay)
-		//End BCA VA
-
-		//BNI VA
-		mdData.BNIVA.VANumber = "12345678"
-		//End BNI VA
-
-		//Callbacks
-		mdData.Callbacks.Finish = "www.pegiblanja.com"
-		//End Callbacks
-
-		//Expiry
-
-		mdData.Expiry.StartTime = date.Format("2006-01-02 15:04:05 +0700")
-		mdData.Expiry.Unit = "days"
-		mdData.Expiry.Duration = 1
-		//End Expiry
-
-		//Custom Fields
-		mdData.CustomField1 = order.Invoice
-		mdData.CustomField2 = ""
-		mdData.CustomField3 = ""
-		//End
-
-		//End
-		// str := base64.StdEncoding.EncodeToString([]byte(conf.MIDTRANS_SERVER_KEY_SANDBOX))
-		str := base64.StdEncoding.EncodeToString([]byte(conf.MIDTRANS_SERVER_KEY))
-		// fmt.Println(str)
-		// fmt.Println("Mid-server-MVca_s9DjkudndY8ywOBqI05")
-
-		jc, err := json.Marshal(mdData)
-		if err != nil {
-			tx.Rollback()
-			er := err.Error() + " - Prepare Midtrans JSON Convert"
-			res.Status = http.StatusInternalServerError
-			res.Message = er
-			res.Data = order
-			return res, errors.New(er)
-		}
-
-		// url := "https://app.sandbox.midtrans.com/snap/v1/transactions"
-		url := "https://app.midtrans.com/snap/v1/transactions"
-		method := "POST"
-		payload := bytes.NewBuffer(jc)
-
-		client := &http.Client{}
-		req, err := http.NewRequest(method, url, payload)
-
-		if err != nil {
-			tx.Rollback()
-			er := err.Error() + " - Request To Midtrans"
-			res.Status = http.StatusInternalServerError
-			res.Message = er
-			res.Data = payload
-			return res, errors.New(er)
-		}
-
-		req.Header.Add("Authorization", "Basic "+str)
-		req.Header.Add("Content-Type", "application/json")
-		response, err := client.Do(req)
-
-		if err != nil {
-			tx.Rollback()
-			er := err.Error() + " - Response From Midtrans"
-			res.Status = http.StatusInternalServerError
-			res.Message = er
-			res.Data = payload
-			return res, errors.New(er)
-		}
-
-		defer response.Body.Close()
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			tx.Rollback()
-			er := err.Error() + " - Read Response From Midtrans"
-			res.Status = http.StatusInternalServerError
-			res.Message = er
-			res.Data = payload
-			return res, errors.New(er)
-		}
-
-		var errRes = new(MidtransErrorResponse)
-		var succRes = new(MidtransSuccessResponse)
-
-		err = json.Unmarshal(body, errRes)
-		if err != nil {
-			tx.Rollback()
-			er := err.Error() + " - Read Error Response From Midtrans"
-			res.Status = http.StatusInternalServerError
-			res.Message = er
-			res.Data = payload
-			return res, errors.New(er)
-		}
-
-		err = json.Unmarshal(body, succRes)
-		if err != nil {
-			tx.Rollback()
-			er := err.Error() + " - Read Success Response From Midtrans"
-			res.Status = http.StatusInternalServerError
-			res.Message = er
-			res.Data = payload
-			return res, errors.New(er)
-		}
-
-		if errRes.ErrorMessages != nil {
-			tx.Rollback()
-
-			var ErrMessage string
-			for idx := range errRes.ErrorMessages {
-				obj := errRes.ErrorMessages[idx]
-				if idx == 0 {
-					ErrMessage = obj
-				} else {
-					ErrMessage += " - " + obj
-
+		var productName string
+		var variantName = ""
+		if product.IsVariant {
+			for _, v := range product.ProductDetails {
+				if v.VariantType == item.VariantId {
+					variantName = v.VariantName
 				}
 			}
 
-			res.Status = http.StatusInternalServerError
-			res.Message = "failed"
-			res.Data = map[string]interface{}{
-				"request_body":  mdData,
-				"response_body": errRes,
+			productName = product.Name + " " + variantName + " " + item.VariantContent
+		} else {
+			productName = product.Name
+		}
+
+		mdItemData.Id = item.ProductId
+		mdItemData.Price = item.Price
+		mdItemData.Qty = item.Qty
+		mdItemData.Name = productName
+		mdItemData.Brand = ""
+		mdItemData.Category = category.Name
+		mdItemData.MerchantName = ""
+
+		mdData.ItemDetails = append(mdData.ItemDetails, mdItemData)
+	}
+	//End
+	//------------------------
+	//Delivery Fee
+	var mdItemData MidtransItemDetails
+	// var courier Courier
+	// courier, err = GetCourierById(order.Delivery.CourierId)
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Prepare Midtrans Item Detail (Get Courier)"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = order
+	// 	return res, errors.New(er)
+	// }
+
+	mdItemData.Id = order.Delivery.TimeDeliveryId
+	mdItemData.Price = order.Delivery.Fee
+	mdItemData.Qty = 1
+	mdItemData.Name = order.Delivery.TimeDeliveryId + " ~ " + order.Delivery.TimeDeliveryName + " - Delivery"
+	mdItemData.Brand = order.Delivery.TimeDeliveryId
+	mdItemData.Category = "DELIVERY"
+	mdItemData.MerchantName = ""
+
+	mdData.ItemDetails = append(mdData.ItemDetails, mdItemData)
+
+	//End Delivery Fee
+
+	//End Item Details
+
+	//Customer Details
+	param_custId, err := strconv.Atoi(order.CustomerId)
+
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Prepare Midtrans Customer Details (Convert Cust Id)"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+
+	cust, err := GetCustomerById(param_custId)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Prepare Midtrans Customer Details (Get Customer)"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+
+	city, err := GetCityByIdData(order.ShippingAddress.City)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Prepare Midtrans Customer Details (Get City)"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+
+	mdData.CustomerDetails.FirstName = cust.Name
+	mdData.CustomerDetails.LastName = ""
+	mdData.CustomerDetails.Email = cust.Email
+	mdData.CustomerDetails.Phone = cust.PhoneNumber
+
+	mdData.CustomerDetails.BillingAddress.FirstName = cust.Name
+	mdData.CustomerDetails.BillingAddress.LastName = ""
+	mdData.CustomerDetails.BillingAddress.Email = cust.Email
+	mdData.CustomerDetails.BillingAddress.Phone = order.ShippingAddress.PhoneNumber
+	mdData.CustomerDetails.BillingAddress.Address = order.ShippingAddress.Address
+	mdData.CustomerDetails.BillingAddress.City = city.Name
+	mdData.CustomerDetails.BillingAddress.PostalCode = order.ShippingAddress.PostalCode
+	mdData.CustomerDetails.BillingAddress.CountryCode = "IDN"
+
+	mdData.CustomerDetails.ShippingAddress.FirstName = cust.Name
+	mdData.CustomerDetails.ShippingAddress.LastName = ""
+	mdData.CustomerDetails.ShippingAddress.Email = cust.Email
+	mdData.CustomerDetails.ShippingAddress.Phone = order.ShippingAddress.PhoneNumber
+	mdData.CustomerDetails.ShippingAddress.Address = order.ShippingAddress.Address
+	mdData.CustomerDetails.ShippingAddress.City = city.Name
+	mdData.CustomerDetails.ShippingAddress.PostalCode = order.ShippingAddress.PostalCode
+	mdData.CustomerDetails.ShippingAddress.CountryCode = "IDN"
+	//End Customer Details
+
+	//Enabled Payment
+	mdData.EnabledPayment = []string{"echannel", "bni_va"}
+	//End Enabled Payment
+
+	//BCA VA
+	var freetextInq MidtransBCAVAFreeTextInquiry
+	var freetextPay MidtransBCAVAFreeTextPayment
+	// mdData.BCAVA.VANumber = "12345678911"
+	// mdData.BCAVA.SubCompanyCode = "00000"
+
+	freetextInq.EN = ""
+	freetextInq.ID = ""
+
+	freetextPay.EN = ""
+	freetextPay.ID = ""
+	// mdData.BCAVA.FreeText.Inquiry = append(mdData.BCAVA.FreeText.Inquiry, freetextInq)
+	// mdData.BCAVA.FreeText.Payment = append(mdData.BCAVA.FreeText.Payment, freetextPay)
+	//End BCA VA
+
+	//BNI VA
+	mdData.BNIVA.VANumber = "12345678"
+	//End BNI VA
+
+	//Callbacks
+	mdData.Callbacks.Finish = "www.pegiblanja.com"
+	//End Callbacks
+
+	//Expiry
+
+	mdData.Expiry.StartTime = date.Format("2006-01-02 15:04:05 +0700")
+	mdData.Expiry.Unit = "days"
+	mdData.Expiry.Duration = 1
+	//End Expiry
+
+	//Custom Fields
+	mdData.CustomField1 = order.Invoice
+	mdData.CustomField2 = ""
+	mdData.CustomField3 = ""
+	//End
+
+	//End
+
+	//Server KEY !important
+	// str := base64.StdEncoding.EncodeToString([]byte(conf.MIDTRANS_SERVER_KEY_SANDBOX))
+	str := base64.StdEncoding.EncodeToString([]byte(conf.MIDTRANS_SERVER_KEY))
+
+	jc, err := json.Marshal(mdData)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Prepare Midtrans JSON Convert"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+
+	//URL SANDBOX
+	// url := "https://app.sandbox.midtrans.com/snap/v1/transactions"
+	// URL Production
+	url := "https://app.midtrans.com/snap/v1/transactions"
+	method := "POST"
+	payload := bytes.NewBuffer(jc)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Request To Midtrans"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	req.Header.Add("Authorization", "Basic "+str)
+	req.Header.Add("Content-Type", "application/json")
+	response, err := client.Do(req)
+
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Response From Midtrans"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Read Response From Midtrans"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	var errRes = new(MidtransErrorResponse)
+	var succRes = new(MidtransSuccessResponse)
+
+	err = json.Unmarshal(body, errRes)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Read Error Response From Midtrans"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	err = json.Unmarshal(body, succRes)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Read Success Response From Midtrans"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	if errRes.ErrorMessages != nil {
+		tx.Rollback()
+
+		var ErrMessage string
+		for idx := range errRes.ErrorMessages {
+			obj := errRes.ErrorMessages[idx]
+			if idx == 0 {
+				ErrMessage = obj
+			} else {
+				ErrMessage += " - " + obj
+
 			}
-			return res, errors.New(ErrMessage)
 		}
 
-		err = UpdateCounterCount("inv_order")
-		if err != nil {
-			tx.Rollback()
-			er := err.Error() + " - UpdateCount"
-			res.Status = http.StatusInternalServerError
-			res.Message = er
-			res.Data = payload
-			return res, errors.New(er)
-		}
-
-		res.Status = http.StatusOK
-		res.Message = "success"
+		res.Status = http.StatusInternalServerError
+		res.Message = "failed"
 		res.Data = map[string]interface{}{
 			"request_body":  mdData,
-			"response_body": succRes,
+			"response_body": errRes,
 		}
-	} else {
-		err = UpdateCounterCount("inv_order")
-		if err != nil {
-			tx.Rollback()
-			er := err.Error() + " - UpdateCount"
-			res.Status = http.StatusInternalServerError
-			res.Message = er
-			res.Data = order
-			return res, errors.New(er)
-		}
-
-		res.Status = http.StatusOK
-		res.Message = "success"
-		res.Data = order
+		return res, errors.New(ErrMessage)
 	}
+
+	err = UpdateCounterCount("inv_order")
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - UpdateCount"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	res.Status = http.StatusOK
+	res.Message = "success"
+	res.Data = map[string]interface{}{
+		"request_body":  mdData,
+		"response_body": succRes,
+	}
+	// } else {
+	// 	err = UpdateCounterCount("inv_order")
+	// 	if err != nil {
+	// 		tx.Rollback()
+	// 		er := err.Error() + " - UpdateCount"
+	// 		res.Status = http.StatusInternalServerError
+	// 		res.Message = er
+	// 		res.Data = order
+	// 		return res, errors.New(er)
+	// 	}
+
+	// 	res.Status = http.StatusOK
+	// 	res.Message = "success"
+	// 	res.Data = order
+	// }
+
+	// var _orderTacking OrderTracking
+	// _orderTacking.OrderId = strconv.Itoa(order.Id)
+	// _orderTacking.ItemNumber = 0
+	// _orderTacking.Created_at = time.Now().Format("2006-01-02 15:04:05 +0700")
+	// _orderTacking.TrackingStatus = "Menunggu Pembayaran"
+
+	// _, err = CreateOrderTracking(_orderTacking, "")
+
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - OrderTracking"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
 
 	err = tx.Commit()
 	if err != nil {
@@ -791,7 +982,7 @@ func CreateOrder(order Order) (Response, error) {
 	return res, nil
 }
 
-func UpdateOrderStatus(order_id string) (Response, error) {
+func UpdateOrderStatus(order_id string, order_status string) (Response, error) {
 	var res Response
 	con := db.CreateCon()
 
@@ -804,9 +995,9 @@ func UpdateOrderStatus(order_id string) (Response, error) {
 		return res, err
 	}
 
-	qry := `UPDATE smc_torder SET s_status = "InProgress" WHERE s_order_id = ?`
+	qry := `UPDATE smc_torder SET s_status = ? WHERE s_order_id = ?`
 
-	_, err = tx.ExecContext(ctx, qry, order_id)
+	_, err = tx.ExecContext(ctx, qry, order_status, order_id)
 	if err != nil {
 		tx.Rollback()
 		er := err.Error() + " - Header"
@@ -886,28 +1077,50 @@ func UpdateWaybillOrder(order_id int, waybill string) (Response, error) {
 	return res, nil
 }
 
-func GetOrder(isAdmin bool, isMitra bool, userId string) (Response, error) {
+func GetOrder(isAdmin bool, isMitra bool, userId string, _paramS string, _startMY string, _endMY string) (Response, error) {
 	var res Response
 	var arrobj []Order
 	var order Order
 	con := db.CreateCon()
 	qry := ""
 	if isAdmin {
-		qry = `SELECT A.*, CS.s_customer_name FROM smc_torder A
+		qry = `SELECT A.*, IFNULL(CS.s_customer_name,'') as 's_customer_name' FROM smc_torder A
 		LEFT JOIN smc_customer CS on CS.s_customer_id = A.s_customer_id
 		order by A.s_order_at desc`
 	} else if isMitra {
-		qry = `SELECT A.*,CS.s_customer_name FROM smc_torder A
+		qry = `SELECT A.*,IFNULL(CS.s_customer_name,'') as 's_customer_name' FROM smc_torder A
 		LEFT JOIN smc_torderproduct B on B.s_order_id = A.s_order_id
 		LEFT JOIN smc_product C on C.s_sku_id = B.s_sku_id
 		LEFT JOIN smc_customer CS on CS.s_customer_id = A.s_customer_id
 		WHERE C.s_user_id = '` + userId + `' order by A.s_order_at desc`
+	} else if _startMY != "" {
+		if _endMY != "" {
+			qry = `SELECT A.*, IFNULL(CS.s_customer_name,'') as 's_customer_name' FROM smc_torder A
+			LEFT JOIN smc_customer CS on CS.s_customer_id = A.s_customer_id
+			WHERE DATE_FORMAT(A.s_order_at, "%m-%Y") BETWEEN '` + _startMY + `' AND '` + _endMY + `'
+			order by A.s_order_at desc`
+		} else {
+			qry = `SELECT A.*, IFNULL(CS.s_customer_name,'') as 's_customer_name' FROM smc_torder A
+			LEFT JOIN smc_customer CS on CS.s_customer_id = A.s_customer_id
+			WHERE DATE_FORMAT(A.s_order_at, "%m-%Y") = '` + _startMY + `'
+			order by A.s_order_at desc`
+		}
 	} else {
 		if userId != "" {
 			// fmt.Println(userId)
-			qry = `SELECT A.*, CS.s_customer_name FROM smc_torder A
-			LEFT JOIN smc_customer CS on CS.s_customer_id = A.s_customer_id
-			WHERE A.s_customer_id = '` + userId + `' order by A.s_order_at desc`
+			if _paramS == "wfp" {
+				qry = `SELECT A.*, IFNULL(CS.s_customer_name,'') as 's_customer_name' FROM smc_torder A
+				LEFT JOIN smc_customer CS on CS.s_customer_id = A.s_customer_id
+                LEFT JOIN smc_ordertracking OT on OT.s_order_id = A.s_order_id
+				WHERE A.s_customer_id = '` + userId + `' and OT.s_tracking_status = 'Menunggu Pembayaran'
+				and (select MAX(OTT.s_item_number) from smc_ordertracking OTT WHERE OTT.s_order_id = A.s_order_id) < 1
+				and CURRENT_TIMESTAMP < DATE_ADD(A.s_order_at, INTERVAL 1 DAY)
+                order by A.s_order_at desc`
+			} else {
+				qry = `SELECT A.*, IFNULL(CS.s_customer_name,'') as 's_customer_name' FROM smc_torder A
+				LEFT JOIN smc_customer CS on CS.s_customer_id = A.s_customer_id
+				WHERE A.s_customer_id = '` + userId + `' order by A.s_order_at desc`
+			}
 		}
 	}
 
@@ -985,8 +1198,8 @@ func GetOrderShippingAddress(con *sql.DB, order Order) (Response, error, Order) 
 	var res Response
 	var shipp OrderShippingAddress
 
-	qry := `SELECT A.s_address_name, A.s_recipient, A.s_phone_number, A.s_province, B.s_name as 's_province_name', 
-	A.s_city, C.s_name as 's_city_name', A.s_sub_district, D.s_name as 's_sub_district_name',
+	qry := `SELECT A.s_address_name, A.s_recipient, A.s_phone_number, A.s_province, IFNULL(B.s_name,'') as 's_province_name', 
+	A.s_city, IFNULL(C.s_name,'') as 's_city_name', A.s_sub_district, IFNULL(D.s_name,'') as 's_sub_district_name',
 	A.s_postal_code, A.s_address FROM smc_tordershippingaddress A
 	LEFT JOIN smc_province B on B.s_province_id = A.s_province
 	LEFT JOIN smc_city C on C.s_city_id = A.s_city
@@ -1036,7 +1249,7 @@ func GetOrderProduct(con *sql.DB, order Order) (Response, error, Order) {
 	var product OrderProduct
 
 	qry := `SELECT A.s_item_number,A.s_sku_id,B.s_name,A.s_qty,A.s_price FROM smc_torderproduct A
-	LEFT JOIN smc_product B on B.s_sku_id = A.s_sku_id
+	INNER JOIN smc_product B on B.s_sku_id = A.s_sku_id
 	WHERE A.s_order_id = ?`
 
 	rows, err := con.Query(qry, order.Id)
@@ -1070,7 +1283,7 @@ func GetOrderDelivery(con *sql.DB, order Order) (Response, error, Order) {
 	var res Response
 	var delivery OrderDelivery
 
-	qry := `SELECT s_courier_id,s_delivery_fee,s_waybill FROM smc_torderdelivery WHERE s_order_id = ?`
+	qry := `SELECT s_time_delivery_id,s_delivery_fee,s_waybill FROM smc_torderdelivery WHERE s_order_id = ?`
 
 	rows, err := con.Query(qry, order.Id)
 
@@ -1082,7 +1295,7 @@ func GetOrderDelivery(con *sql.DB, order Order) (Response, error, Order) {
 	}
 
 	for rows.Next() {
-		err := rows.Scan(&delivery.CourierId, &delivery.Fee, &delivery.WayBill)
+		err := rows.Scan(&delivery.TimeDeliveryId, &delivery.Fee, &delivery.WayBill)
 
 		if err != nil {
 			fmt.Println(err.Error() + " - " + strconv.Itoa(order.Id))
@@ -1092,7 +1305,7 @@ func GetOrderDelivery(con *sql.DB, order Order) (Response, error, Order) {
 			return res, err, order
 		}
 
-		order.Delivery.CourierId = delivery.CourierId
+		order.Delivery.TimeDeliveryId = delivery.TimeDeliveryId
 		order.Delivery.Fee = delivery.Fee
 		order.Delivery.WayBill = delivery.WayBill
 	}

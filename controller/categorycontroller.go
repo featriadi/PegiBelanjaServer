@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"pb-dev-be/models"
-	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -22,17 +21,15 @@ func FetchAllCategoryData(c echo.Context) error {
 }
 
 func StoreCategory(c echo.Context) error {
-	fmt.Println("POST Bank END POINT HIT!")
+	fmt.Println("POST Category END POINT HIT!")
 
-	var cat models.Category
+	var cat = new(models.Category)
+	err := c.Bind(cat)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Bind Error : " + err.Error()})
+	}
 
-	cat.Id = c.FormValue("category_id")
-	cat.Name = c.FormValue("name")
-	cat.UserId = c.FormValue("user_id")
-	cat.Created_at = time.Now().Format("2006-01-02 15:04:05")
-	cat.Modified_at = time.Now().Format("2006-01-02 15:04:05")
-
-	result, err := models.StoreCategory(cat)
+	result, err := models.StoreCategory(*cat)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
@@ -42,17 +39,17 @@ func StoreCategory(c echo.Context) error {
 }
 
 func UpdateCategory(c echo.Context) error {
-	fmt.Println("PUT Bank END POINT HIT!")
+	fmt.Println("PUT Category END POINT HIT!")
 
-	var cat models.Category
+	var cat = new(models.Category)
 	param_id := c.Param("id")
-	cat.Id = c.FormValue("category_id")
-	cat.Name = c.FormValue("name")
-	cat.UserId = c.FormValue("user_id")
-	cat.Created_at = time.Now().Format("2006-01-02 15:04:05")
-	cat.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
-	result, err := models.UpdateCategory(cat, param_id)
+	err := c.Bind(cat)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Bind Error : " + err.Error()})
+	}
+
+	result, err := models.UpdateCategory(*cat, param_id)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
@@ -62,7 +59,7 @@ func UpdateCategory(c echo.Context) error {
 }
 
 func DeleteCategory(c echo.Context) error {
-	fmt.Println("DELETE Bank END POINT HIT!")
+	fmt.Println("DELETE Category END POINT HIT!")
 
 	id := c.FormValue("category_id")
 

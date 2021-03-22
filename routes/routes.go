@@ -14,11 +14,23 @@ func Init() *echo.Echo {
 
 	e.Use(middleware.StaticWithConfig(middleware.DefaultStaticConfig))
 
-	e.Use(middleware.CORSWithConfig(middleware.DefaultCORSConfig))
+	// CORS restricted
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete, http.MethodOptions},
+	}))
+
+	e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
+		Validator: middlewares.ValidateKey,
+	}))
 
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "What's Good!")
 	})
+
+	//Image
+	e.GET("/image/helper/:type/get-base64/:file_name", controller.GetEncodedImage)
+	//End Image
 
 	//Category
 	// e.GET("/category/get", controller.FetchAllCategoryData, middlewares.IsAuthtenticated)
@@ -35,6 +47,8 @@ func Init() *echo.Echo {
 	e.POST("/customer/register", controller.StoreCustomerWithUser)
 	e.PUT("/customer/update/:id", controller.UpdateCustomer)
 	e.DELETE("/customer/delete/:id", controller.DeleteCustomer)
+
+	e.GET("/customer/validate/:email", controller.CheckCustomerByEmail)
 	//End Customer
 
 	//Bank
@@ -84,6 +98,7 @@ func Init() *echo.Echo {
 
 	//Mitra
 	e.GET("/mitra/get", controller.FetchAllMitraData)
+	e.GET("/mitra/get/:id", controller.ShowMitraDataById)
 	e.POST("/mitra/create", controller.StoreMitra)
 	e.PUT("/mitra/update/:id", controller.UpdateMitra)
 	e.DELETE("/mitra/delete/:id", controller.DeleteMitra)
@@ -94,6 +109,20 @@ func Init() *echo.Echo {
 	e.GET("/review/get/:product_id", controller.FetchReviewByProductId)
 	e.POST("/review/create", controller.StoreReview)
 	//End Review
+
+	//Email
+	// e.POST("/email/send", controller.SendEmail)
+	//End Email
+
+	//Verification
+	e.POST("/verification/create", controller.CreateVerification)
+	//End Verification
+
+	//Time Delivery
+	e.GET("/timedelivery/get", controller.FetchAllTimeDeliveryData)
+	// e.GET("/review/get/:product_id", controller.FetchReviewByProductId)
+	// e.POST("/review/create", controller.StoreReview)
+	//End Time Delivery
 
 	//Cart
 	e.GET("/cart/get", controller.GetCartByCustomerId)
@@ -119,8 +148,10 @@ func Init() *echo.Echo {
 
 	//Order
 	e.POST("/order/create", controller.CreateOrder)
+	e.POST("/order/post", controller.PostOrder)
 	e.GET("/order/get/transaction/status/:order_id", controller.GetTransactionStatus)
 	e.GET("/order/get", controller.GetOrderData)
+	e.GET("/order/stats/get", controller.GetOrderStats)
 	e.POST("/order/tracking/create", controller.CreateOrderTracking)
 	e.GET("/order/tracking/get/:order_id", controller.GetOrderTracking)
 	e.PUT("/order/update/waybill/:order_id", controller.UpdateWaybillOrder)
@@ -154,6 +185,10 @@ func Init() *echo.Echo {
 	e.POST("/mitra/register", controller.StoreMitraWithUser)
 	e.GET("/srv-key/get", controller.GetAuthForMidtrans)
 	//End Auth
+
+	//Acurate Auth
+	// e.POST("https://account.accurate.id/oauth", controller.StoreAccurate)
+	e.GET("/accurateauth", controller.Accurate)
 
 	return e
 }

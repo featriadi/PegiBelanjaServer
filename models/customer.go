@@ -42,6 +42,7 @@ type CustomerAddress struct {
 }
 
 func FetchAllCustomerData() (Response, error) {
+	//ade syahri, achonk, viky, soparudin, desty, andri
 	var res Response
 	var arrObj []Customer
 	var cust Customer
@@ -84,6 +85,31 @@ func FetchAllCustomerData() (Response, error) {
 	res.Status = http.StatusOK
 	res.Message = "Success"
 	res.Data = arrObj
+
+	return res, nil
+
+}
+
+func CheckCustomer(email string) (Response, error) {
+	var res Response
+
+	con := db.CreateCon()
+	exist, err := CheckCustomerExistByEmail(email, con)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = Customer{}
+		return res, err
+	}
+
+	res.Status = http.StatusOK
+	res.Message = "Success"
+	res.Data = map[string]interface{}{
+		"email": email,
+		"exist": exist,
+	}
 
 	return res, nil
 
@@ -185,7 +211,7 @@ func GetCustomerAddress(con *sql.DB, cust Customer) (Response, error, Customer) 
 	var res Response
 	var c_address CustomerAddress
 
-	qry := `SELECT A.s_item_number, A.s_address_name, A.s_recipient, A.s_phone_number, A.s_province, B.s_name as 's_province_name', 
+	qry := `SELECT A.s_item_number, A.s_address_name, A.s_recipient, A.s_phone_number, A.s_province, COALESCE(B.s_name) as 's_province_name', 
 	A.s_city, C.s_name as 's_city_name', A.s_sub_district, D.s_name as 's_sub_district_name',
 	A.s_postal_code, A.s_address, A.s_is_main FROM smc_customeraddress A
 	LEFT JOIN smc_province B on B.s_province_id = A.s_province
@@ -199,6 +225,7 @@ func GetCustomerAddress(con *sql.DB, cust Customer) (Response, error, Customer) 
 		res.Status = http.StatusInternalServerError
 		res.Message = "GetCustomerAddress - qry - " + strconv.Itoa(cust.Id) + " - " + err.Error()
 		res.Data = Customer{}
+		fmt.Println(err)
 		return res, err, cust
 	}
 

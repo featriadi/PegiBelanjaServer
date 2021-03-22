@@ -151,3 +151,17 @@ func DeleteCustomer(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, result)
 }
+
+func CheckCustomerByEmail(c echo.Context) error {
+	fmt.Println("Check Customer End Point Hit")
+
+	email := c.Param("email")
+
+	result, err := models.CheckCustomer(email)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}

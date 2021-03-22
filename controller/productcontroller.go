@@ -15,7 +15,7 @@ import (
 )
 
 func GetTotalProducts(c echo.Context) error {
-	result, err := models.GetTotalProduts()
+	result, err := models.GetTotalProduts("")
 	if err != nil {
 		return err
 	}
@@ -27,9 +27,11 @@ func FetchAllProductData(c echo.Context) error {
 
 	query_param := c.QueryParam("newest_product")
 	isp := c.QueryParam("isp")
-	_start := c.QueryParam("_start")
-	_limit := c.QueryParam("_limit")
+	// _start := c.QueryParam("_start")
+	// _limit := c.QueryParam("_limit")
 	_userid := c.QueryParam("user_id")
+	_category := c.QueryParam("_categoryid")
+	_subcategory := c.QueryParam("_subcategoryid")
 	_title_contains := c.FormValue("title_contains")
 
 	if query_param == "" {
@@ -52,7 +54,7 @@ func FetchAllProductData(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Parse Boolean 202 : " + err.Error()})
 	}
 
-	result, err := models.FetchAllProductData(newest_product, _start, _limit, _isp, _userid, _title_contains)
+	result, err := models.FetchAllProductData(newest_product, _category, _subcategory, _isp, _userid, _title_contains)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}

@@ -24,12 +24,15 @@ type Mitra struct {
 }
 
 type Address struct {
-	ItemNumber  int    `json:"index"`
-	Province    string `json:"province"`
-	City        string `json:"city"`
-	SubDistrict string `json:"sub_district"`
-	PostalCode  string `json:"postal_code"`
-	Address     string `json:"address"`
+	ItemNumber      int    `json:"index"`
+	Province        string `json:"province"`
+	ProvinceName    string `json:"province_name"`
+	City            string `json:"city"`
+	CityName        string `json:"city_name"`
+	SubDistrict     string `json:"sub_district"`
+	SubDistrictName string `json:"sub_district_name"`
+	PostalCode      string `json:"postal_code"`
+	Address         string `json:"address"`
 }
 
 func FetchAllMitraData() (Response, error) {
@@ -80,12 +83,61 @@ func FetchAllMitraData() (Response, error) {
 	return res, nil
 }
 
+func GetMitraById(param_id string) (Response, error) {
+	var res Response
+	var mitra Mitra
+
+	con := db.CreateCon()
+
+	qry := "SELECT * FROM smc_mitra WHERE s_mitra_id = ?"
+
+	rows, err := con.Query(qry, param_id)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = mitra
+		return res, err
+	}
+
+	for rows.Next() {
+		err := rows.Scan(&mitra.Id, &mitra.Name, &mitra.PhoneNumber, &mitra.Email, &mitra.StoreName, &mitra.NoKTP,
+			&mitra.UserCreated, &mitra.Created_at, &mitra.Modified_at)
+
+		if err != nil {
+			fmt.Println(err.Error())
+			res.Status = http.StatusInternalServerError
+			res.Message = err.Error()
+			res.Data = mitra
+			return res, err
+		}
+
+		res, err, mitra_address := GetMitraAddress(con, mitra)
+		mitra.MitraAddress = mitra_address.MitraAddress
+
+		if err != nil {
+			return res, err
+		}
+	}
+	defer rows.Close()
+
+	res.Status = http.StatusOK
+	res.Message = "Success"
+	res.Data = mitra
+
+	return res, nil
+}
+
 func GetMitraAddress(con *sql.DB, mitra Mitra) (Response, error, Mitra) {
 	var res Response
 	var address Address
 
-	qry := `SELECT s_item_number, s_province, s_city, s_sub_district, s_postal_code, s_address FROM smc_mitraaddress
-	WHERE s_mitra_id = ?`
+	qry := `SELECT A.s_item_number, A.s_province, B.s_name, A.s_city, C.s_name, A.s_sub_district, D.s_name, A.s_postal_code, A.s_address FROM smc_mitraaddress A
+	LEFT JOIN smc_province B on B.s_province_id = A.s_province
+	LEFT JOIN smc_city C on C.s_city_id = A.s_city
+	LEFT JOIN smc_subdistrict D on D.s_subdistrict_id = A.s_sub_district
+	WHERE A.s_mitra_id = ?`
 
 	rows, err := con.Query(qry, mitra.Id)
 
@@ -97,7 +149,7 @@ func GetMitraAddress(con *sql.DB, mitra Mitra) (Response, error, Mitra) {
 	}
 
 	for rows.Next() {
-		err := rows.Scan(&address.ItemNumber, &address.Province, &address.City, &address.SubDistrict,
+		err := rows.Scan(&address.ItemNumber, &address.Province, &address.ProvinceName, &address.City, &address.CityName, &address.SubDistrict, &address.SubDistrictName,
 			&address.PostalCode, &address.Address)
 
 		if err != nil {
@@ -223,9 +275,11 @@ func StoreMitraAndRegisterUser(mitra Mitra, password string) (Response, error) {
 		return res, err
 	}
 
+	fmt.Println(mitra.StoreName)
+
 	mitra.Id = gen_id
 	_, err = tx.ExecContext(ctx, qry, mitra.Id, mitra.Name, mitra.PhoneNumber,
-		mitra.Email, mitra.NoKTP, mitra.StoreName, mitra.UserCreated, mitra.Created_at, mitra.Modified_at)
+		mitra.Email, mitra.StoreName, mitra.NoKTP, mitra.UserCreated, mitra.Created_at, mitra.Modified_at)
 
 	if err != nil {
 		tx.Rollback()

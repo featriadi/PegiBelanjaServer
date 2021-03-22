@@ -114,3 +114,16 @@ func DeleteMitra(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, result)
 }
+
+func ShowMitraDataById(c echo.Context) error {
+	fmt.Println("GET Mitra By ID END POINT HIT!")
+
+	param_id := c.Param("id")
+	result, err := models.GetMitraById(param_id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+
+	}
+
+	return c.JSON(http.StatusOK, result)
+}

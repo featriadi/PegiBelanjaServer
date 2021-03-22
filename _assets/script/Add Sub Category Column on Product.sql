@@ -1,0 +1,1 @@
+ALTER TABLE `smc_product` ADD `s_sub_category_id` VARCHAR(150) NOT NULL DEFAULT '' AFTER `s_category_id`;

@@ -13,17 +13,20 @@ import (
 const ObjectId = "PRODUCT"
 
 type Product struct {
-	Id                    string           `json:"id"`
-	Name                  string           `json:"name"`
-	CategoryId            string           `json:"categoryid"`
-	Description           string           `json:"description"`
-	MinOrder              int              `json:"minimal_order"`
-	IsVariant             bool             `json:"using_variant"`
-	IsDiscount            bool             `json:"using_discount"`
-	IsReadyStock          bool             `json:"ready_stock"`
-	IsWholesalePrice      bool             `json:"using_wholesale_price"`
+	Id               string `json:"id"`
+	Name             string `json:"name"`
+	CategoryId       string `json:"categoryid"`
+	CategoryName     string `json:"category_name"`
+	Description      string `json:"description"`
+	MinOrder         int    `json:"minimal_order"`
+	IsVariant        bool   `json:"using_variant"`
+	IsDiscount       bool   `json:"using_discount"`
+	IsReadyStock     bool   `json:"ready_stock"`
+	IsWholesalePrice bool   `json:"using_wholesale_price"`
+	// IsPromo               bool             `json:"using_promo"`
 	PublishStatus         bool             `json:"publish_status"`
 	ProductDetails        []Details        `json:"details"`
+	ProductSubCategory    []SubCategory    `json:"sub_category"`
 	ProductMedia          []Media          `json:"media"`
 	ProductDiscount       Discount         `json:"discount"`
 	ProductWholesalePrice []WholesalePrice `json:"wholesale_price"`
@@ -40,6 +43,7 @@ type Details struct {
 	SellPrice   float64 `json:"sell_price"`
 	VKey        int     `json:"v_key"`
 	VariantType string  `json:"variant_type"`
+	VariantName string  `json:"variant_name"`
 	Content     string  `json:"content"`
 	Stock       float64 `json:"stock"`
 }
@@ -59,45 +63,63 @@ type Media struct {
 	FilePath   string `json:"file_path"`
 }
 
-func FetchAllProductData(is_newest_product bool, start string, limit string, isp bool, user_id string, param_search string) (Response, error) {
+func FetchAllProductData(is_newest_product bool, category_id string, subCategory_id string, isp bool, user_id string, param_search string) (Response, error) {
 	var res Response
 	var arrobj []Product
 	var product Product
 	con := db.CreateCon()
 	qry := ""
 	if is_newest_product {
-		qry = `SELECT A.*, B.s_status FROM smc_product A
+		qry = `SELECT A.*, IFNULL(B.s_status, ''), IFNULL(C.s_category_name, '') as 's_category_name' FROM smc_product A
 		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+        LEFT JOIN smc_category C on C.s_category_id = A.s_category_id
 		WHERE A.s_created_at > now() - interval 2 month 
 		and B.s_status = 'VERIFIED' and A.s_publish_status = 1
 		ORDER BY A.s_created_at DESC LIMIT 12`
-	} else if start != "" {
-		qry = `SELECT A.*, B.s_status FROM smc_product A
-		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
-		WHERE B.s_status = 'VERIFIED' and A.s_publish_status = 1 LIMIT ` + start + `,` + limit
 	} else if isp {
-		qry = `SELECT A.*, B.s_status FROM smc_product A 
+		qry = `SELECT A.*, IFNULL(B.s_status, ''), IFNULL(C.s_category_name, '') as 's_category_name' FROM smc_product A 
 		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+		LEFT JOIN smc_category C on C.s_category_id = A.s_category_id
 		WHERE
-		B.s_status = 'VERIFIED' and A.s_publish_status = 1`
+		B.s_status = 'VERIFIED' and A.s_publish_status = 1
+		ORDER BY A.s_created_at DESC`
 	} else if user_id != "" {
-		qry = `SELECT A.*, B.s_status FROM smc_product A  
+		qry = `SELECT A.*, IFNULL(B.s_status, ''), IFNULL(C.s_category_name, '') as 's_category_name' FROM smc_product A  
 		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+		LEFT JOIN smc_category C on C.s_category_id = A.s_category_id
 		WHERE A.s_user_id = '` + user_id + `'`
 	} else if param_search != "" {
-		if start != "" {
-			qry = `SELECT A.*, B.s_status FROM smc_product A
+		qry = `SELECT A.*, IFNULL(B.s_status, ''), IFNULL(C.s_category_name, '') as 's_category_name' FROM smc_product A 
 		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
-		WHERE B.s_status = 'VERIFIED' and A.s_publish_status = 1 LIMIT ` + start + `,` + limit + `and A.s_name like '` + param_search + `'`
-		} else {
-			qry = `SELECT A.*, B.s_status FROM smc_product A 
-		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+		LEFT JOIN smc_category C on C.s_category_id = A.s_category_id
 		WHERE
 		B.s_status = 'VERIFIED' and A.s_publish_status = 1 and A.s_name like '%` + param_search + `%'`
+
+	} else if category_id != "" {
+		if subCategory_id != "" {
+			qry = `SELECT A.*, IFNULL(B.s_status, ''), IFNULL(D.s_category_name, '') as 's_category_name' FROM smc_product A
+			LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+			LEFT JOIN smc_productsubcategory C on C.s_sku_id = A.s_sku_id
+			LEFT JOIN smc_category D on D.s_category_id = A.s_category_id
+			WHERE B.s_status = 'VERIFIED' and A.s_publish_status = 1 and A.s_category_id = '` + category_id + `' 
+			AND C.s_sub_category_id='` + subCategory_id + `'
+			ORDER BY A.s_created_at DESC`
+		} else {
+			qry = `SELECT A.*, IFNULL(B.s_status, ''), IFNULL(C.s_category_name, '') as 's_category_name' FROM smc_product A
+			LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+			LEFT JOIN smc_category C on C.s_category_id = A.s_category_id
+			WHERE B.s_status = 'VERIFIED' and A.s_publish_status = 1 and A.s_category_id = '` + category_id + `'
+			ORDER BY A.s_created_at DESC`
 		}
 	} else {
-		qry = "SELECT A.*, B.s_status FROM smc_product A LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'"
+		qry = `SELECT A.*, IFNULL(B.s_status, ''), IFNULL(C.s_category_name, '') as 's_category_name' FROM smc_product A 
+		LEFT JOIN smc_approved B on B.s_id = A.s_sku_id and B.s_object_id = 'PRODUCT'
+		LEFT JOIN smc_category C on C.s_category_id = A.s_category_id`
+
 	}
+
+	// fmt.Println(is_newest_product)
+	// fmt.Println(qry)
 	rows, err := con.Query(qry)
 
 	if err != nil {
@@ -112,7 +134,7 @@ func FetchAllProductData(is_newest_product bool, start string, limit string, isp
 		err = rows.Scan(&product.Id, &product.Name, &product.CategoryId, &product.Description,
 			&product.MinOrder, &product.IsVariant, &product.IsDiscount, &product.IsReadyStock,
 			&product.IsWholesalePrice, &product.PublishStatus, &product.UserId,
-			&product.Created_at, &product.Modified_at, &product.AppStatus)
+			&product.Created_at, &product.Modified_at, &product.AppStatus, &product.CategoryName)
 
 		if err != nil {
 			fmt.Println(err.Error())
@@ -127,6 +149,11 @@ func FetchAllProductData(is_newest_product bool, start string, limit string, isp
 
 		if err != nil {
 			return res, err
+		}
+
+		res4, err, product := GetProductSubCategory(con, product)
+		if err != nil {
+			return res4, err
 		}
 
 		res2, err, product := GetProductMedia(con, product)
@@ -150,11 +177,66 @@ func FetchAllProductData(is_newest_product bool, start string, limit string, isp
 	}
 	defer rows.Close()
 
+	// if category_id != "" {
+	// 	qry_params := `s_category_id = '` + category_id + `'`
+	// 	ttResponse, tErr := GetTotalProduts(qry_params)
+
+	// 	if tErr != nil {
+	// 		return ttResponse, tErr
+	// 	}
+
+	// 	res.Status = http.StatusOK
+	// 	res.Message = "Success"
+	// 	res.Data = map[string]interface{}{
+	// 		"data":       arrobj,
+	// 		"rows_total": ttResponse.Data,
+	// 	}
+	// } else {
+	// 	res.Status = http.StatusOK
+	// 	res.Message = "Success"
+	// 	res.Data = arrobj
+	// }
+
 	res.Status = http.StatusOK
 	res.Message = "Success"
 	res.Data = arrobj
 
 	return res, nil
+}
+
+func GetProductSubCategory(con *sql.DB, product Product) (Response, error, Product) {
+	var res Response
+	var subCat SubCategory
+
+	qry_details := `SELECT A.s_item_number, A.s_sub_category_id, B.s_sub_category_name FROM smc_productsubcategory A
+	LEFT JOIN smc_sub_category B on B.s_sub_category_id = A.s_sub_category_id
+	WHERE A.s_sku_id = ?`
+
+	rows_details, err := con.Query(qry_details, product.Id)
+
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = "GetProductSubCategory - qry - " + product.Id + " - " + err.Error()
+		res.Data = Product{}
+		return res, err, product
+	}
+
+	for rows_details.Next() {
+		err := rows_details.Scan(&subCat.Index, &subCat.Id, &subCat.Name)
+
+		if err != nil {
+			fmt.Println(err.Error() + " - " + product.Id)
+			res.Status = http.StatusInternalServerError
+			res.Message = "GetProductSubCategory - scn - " + product.Id + " - " + err.Error()
+			res.Data = Product{}
+			return res, err, product
+		}
+
+		product.ProductSubCategory = append(product.ProductSubCategory, subCat)
+	}
+	defer rows_details.Close()
+
+	return res, nil, product
 }
 
 func GetProductById(param_id string) (Product, error) {
@@ -192,6 +274,11 @@ func GetProductById(param_id string) (Product, error) {
 		// fmt.Println(product.Id)
 		_, err, prod := GetProductDetails(con, product)
 		product.ProductDetails = prod.ProductDetails
+		if err != nil {
+			return product, err
+		}
+
+		_, err, product := GetProductSubCategory(con, product)
 		if err != nil {
 			return product, err
 		}
@@ -263,6 +350,12 @@ func ShowProductById(param_id string) (Response, error) {
 			return res, err
 		}
 
+		res4, err, prod := GetProductSubCategory(con, product)
+		product.ProductSubCategory = prod.ProductSubCategory
+		if err != nil {
+			return res4, err
+		}
+
 		res3, err, prod := GetProductMedia(con, product)
 		product.ProductMedia = prod.ProductMedia
 		if err != nil {
@@ -275,10 +368,10 @@ func ShowProductById(param_id string) (Response, error) {
 			return res2, err
 		}
 
-		res4, err, prod := GetProductWholesalePrice(con, product)
+		res5, err, prod := GetProductWholesalePrice(con, product)
 		product.ProductWholesalePrice = prod.ProductWholesalePrice
 		if err != nil {
-			return res4, err
+			return res5, err
 		}
 
 	}
@@ -295,9 +388,11 @@ func GetProductDetails(con *sql.DB, product Product) (Response, error, Product) 
 	var res Response
 	var detail Details
 
-	qry_details := `SELECT s_item_number, s_weight, s_buy_price, s_sell_price, s_v_key,
-	s_variant_type, s_content, s_stock
-	FROM smc_productdetails WHERE s_sku_id = ?`
+	qry_details := `SELECT A.s_item_number, A.s_weight, A.s_buy_price, A.s_sell_price, A.s_v_key,
+	A.s_variant_type, A.s_content, A.s_stock, IFNULL(B.s_name,'') as 'variant_name'
+	FROM smc_productdetails A 
+	LEFT JOIN smc_variant B on B.s_variant_id = A.s_variant_type    
+	WHERE A.s_sku_id = ?`
 
 	rows_details, err := con.Query(qry_details, product.Id)
 
@@ -310,7 +405,7 @@ func GetProductDetails(con *sql.DB, product Product) (Response, error, Product) 
 
 	for rows_details.Next() {
 		err := rows_details.Scan(&detail.ItemNumber, &detail.Weight, &detail.BuyPrice, &detail.SellPrice, &detail.VKey,
-			&detail.VariantType, &detail.Content, &detail.Stock)
+			&detail.VariantType, &detail.Content, &detail.Stock, &detail.VariantName)
 
 		if err != nil {
 			fmt.Println(err.Error() + " - " + product.Id)
@@ -449,12 +544,17 @@ func CheckProductExist(id string, con *sql.DB) (bool, error) {
 	return true, nil
 }
 
-func GetTotalProduts() (Response, error) {
+func GetTotalProduts(query_params string) (Response, error) {
 	var res Response
 	var count int
 	con := db.CreateCon()
+	qry := ""
 
-	qry := "select COUNT(*) as count FROM smc_product"
+	if query_params != "" {
+		qry = "select COUNT(*) as count FROM smc_product WHERE " + query_params
+	} else {
+		qry = "select COUNT(*) as count FROM smc_product"
+	}
 
 	err := con.QueryRow(qry).Scan(&count)
 
@@ -503,6 +603,7 @@ func StoreProductData(product Product, is_mitra bool) (Response, error) {
 
 	qry := "INSERT INTO smc_product VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	qry_details := "INSERT INTO smc_productdetails VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	qry_sub_cat := "INSERT INTO smc_productsubcategory VALUES(?, ?, ?)"
 	qry_media := "INSERT INTO smc_productmedia VALUES(?, ?, ?)"
 	qry_discount := "INSERT INTO smc_productdiscount VALUES(?, ?)"
 	qry_wholesale := "INSERT INTO smc_productwholesaleprice VALUES(?, ?, ?, ?)"
@@ -537,6 +638,25 @@ func StoreProductData(product Product, is_mitra bool) (Response, error) {
 		if err != nil {
 			tx.Rollback()
 			er := err.Error() + " - Details"
+			fmt.Println(er)
+			res.Status = http.StatusInternalServerError
+			res.Message = er
+			res.Data = product
+			return res, errors.New(er)
+		}
+	}
+	//End
+
+	//Product Sub Category
+	for idx := range product.ProductSubCategory {
+		subCat := product.ProductSubCategory[idx]
+		subCat.Index = idx
+
+		_, err := tx.ExecContext(ctx, qry_sub_cat, product.Id, subCat.Index, subCat.Id)
+
+		if err != nil {
+			tx.Rollback()
+			er := err.Error() + " - Sub Category"
 			fmt.Println(er)
 			res.Status = http.StatusInternalServerError
 			res.Message = er
@@ -759,10 +879,12 @@ func UpdateProductData(product Product, param_id string) (Response, error) {
 	s_user_id = ?, s_modified_at = ? WHERE s_sku_id = ?`
 
 	qry_details := "INSERT INTO smc_productdetails VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)"
-	qry_media := "INSERT INTO smc_productmedia VALUES(?, ?, ?)"
+	qry_sub_cat := "INSERT INTO smc_productsubcategory VALUES(?, ?, ?)"
+	// qry_media := "INSERT INTO smc_productmedia VALUES(?, ?, ?)"
 	qry_discount := "INSERT INTO smc_productdiscount VALUES(?, ?)"
 	qry_wholesale := "INSERT INTO smc_productwholesaleprice VALUES(?, ?, ?, ?)"
 
+	//Product Header
 	product.Modified_at = time.Now().Format("2006-01-02 15:04:05")
 
 	result, err := tx.ExecContext(ctx, qry, product.Id, product.Name, product.CategoryId, product.Description, product.MinOrder,
@@ -791,18 +913,30 @@ func UpdateProductData(product Product, param_id string) (Response, error) {
 		return res, err
 	}
 
-	tx, err = DeleteProductMediaData(ctx, tx, param_id)
+	tx, err = DeleteProductSubCategoryData(ctx, tx, param_id)
 
 	if err != nil {
 		tx.Rollback()
 		fmt.Println(err.Error())
 		res.Status = http.StatusInternalServerError
 		res.Message = err.Error()
-		res.Data = map[string]int64{
-			"rows_affected": 0,
-		}
+		res.Data = product
 		return res, err
 	}
+
+	//Off Temporarily
+	// tx, err = DeleteProductMediaData(ctx, tx, param_id)
+
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	fmt.Println(err.Error())
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = err.Error()
+	// 	res.Data = map[string]int64{
+	// 		"rows_affected": 0,
+	// 	}
+	// 	return res, err
+	// }
 
 	tx, err = DeleteProductDiscountData(ctx, tx, param_id)
 
@@ -851,21 +985,41 @@ func UpdateProductData(product Product, param_id string) (Response, error) {
 	}
 	//End
 
-	//Product Media
-	for idx := range product.ProductMedia {
-		media := product.ProductMedia[idx]
-		media.ItemNumber = idx
+	//Product Sub Category
+	for idx := range product.ProductSubCategory {
+		subCat := product.ProductSubCategory[idx]
+		subCat.Index = idx
 
-		_, err := tx.ExecContext(ctx, qry_media, product.Id, media.ItemNumber, media.FilePath)
+		_, err := tx.ExecContext(ctx, qry_sub_cat, product.Id, subCat.Index, subCat.Id)
+
 		if err != nil {
 			tx.Rollback()
-			fmt.Println(err.Error())
+			er := err.Error() + " - Sub Category"
+			fmt.Println(er)
 			res.Status = http.StatusInternalServerError
-			res.Message = err.Error() + " - Media"
+			res.Message = er
 			res.Data = product
-			return res, err
+			return res, errors.New(er)
 		}
 	}
+	//End
+
+	//Off Temporarily
+	//Product Media
+	// for idx := range product.ProductMedia {
+	// 	media := product.ProductMedia[idx]
+	// 	media.ItemNumber = idx
+
+	// 	_, err := tx.ExecContext(ctx, qry_media, product.Id, media.ItemNumber, media.FilePath)
+	// 	if err != nil {
+	// 		tx.Rollback()
+	// 		fmt.Println(err.Error())
+	// 		res.Status = http.StatusInternalServerError
+	// 		res.Message = err.Error() + " - Media"
+	// 		res.Data = product
+	// 		return res, err
+	// 	}
+	// }
 	//End
 
 	//Product Discount
@@ -990,6 +1144,19 @@ func DeleteProduct(param_id string) (Response, error) {
 		return res, err
 	}
 
+	tx, err = DeleteProductSubCategoryData(ctx, tx, param_id)
+
+	if err != nil {
+		tx.Rollback()
+		fmt.Println(err.Error())
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = map[string]int64{
+			"rows_affected": 0,
+		}
+		return res, err
+	}
+
 	tx, err = DeleteProductMediaData(ctx, tx, param_id)
 
 	if err != nil {
@@ -1061,6 +1228,17 @@ func DeleteProductHeaderData(ctx context.Context, tx *sql.Tx, param_id string) (
 
 func DeleteProductDetailsData(ctx context.Context, tx *sql.Tx, param_id string) (*sql.Tx, error) {
 	qry := "DELETE FROM smc_productdetails WHERE s_sku_id = ?"
+
+	_, err := tx.ExecContext(ctx, qry, param_id)
+	if err != nil {
+		return tx, err
+	}
+
+	return tx, nil
+}
+
+func DeleteProductSubCategoryData(ctx context.Context, tx *sql.Tx, param_id string) (*sql.Tx, error) {
+	qry := "DELETE FROM smc_productsubcategory WHERE s_sku_id = ?"
 
 	_, err := tx.ExecContext(ctx, qry, param_id)
 	if err != nil {

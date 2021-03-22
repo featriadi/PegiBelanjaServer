@@ -3,9 +3,9 @@
     "DB_PASSWORD": "smc2020",
     "DB_PORT": "3306",
     "DB_HOST": "127.0.0.1",
-    "DB_NAME": "pb_dev",
+    "DB_NAME": "pb_dev 28012021",
     "SAROLE" : "SADM",
-    "MIDTRANS_SERVER_KEY_SANDBOX": "SB-Mid-server-e7BKf4HjAqWrjBn0cAZLSV5v",
-    "MIDTRANS_SERVER_KEY": "Mid-server-MVca_s9DjkudndY8ywOBqI05",
-    "MIDTRANS_MERCHANT_ID": "G702660671"
+    "MIDTRANS_SERVER_KEY_SANDBOX": "SB-Mid-server-KwXI1e8Nm35VtlkXbasdE8DT",
+    "MIDTRANS_SERVER_KEY": "Mid-server-HnkexXzOfhbI6jCPpRDt89Ea",
+    "MIDTRANS_MERCHANT_ID": "G658675971"
 }

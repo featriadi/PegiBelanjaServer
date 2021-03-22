@@ -67,6 +67,7 @@ func CheckLogin(c echo.Context) error {
 
 	_isCustomer := c.QueryParam("is_customer")
 	_isMitra := c.QueryParam("is_mitra")
+	_isAdmin := c.QueryParam("is_admin")
 
 	if _isCustomer == "" {
 		_isCustomer = "false"
@@ -74,6 +75,10 @@ func CheckLogin(c echo.Context) error {
 
 	if _isMitra == "" {
 		_isMitra = "false"
+	}
+
+	if _isAdmin == "" {
+		_isAdmin = "false"
 	}
 
 	isCustomer, err := strconv.ParseBool(_isCustomer)
@@ -88,7 +93,13 @@ func CheckLogin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Parse Boolean _isMitra: " + err.Error()})
 	}
 
-	res, err, user := models.CheckLogin(user, isCustomer, isMitra)
+	isAdmin, err := strconv.ParseBool(_isAdmin)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Parse Boolean _isMitra: " + err.Error()})
+	}
+
+	res, err, user := models.CheckLogin(user, isCustomer, isMitra, isAdmin)
 
 	if !res {
 		// c.Response().WriteHeader(http.StatusUnauthorized)
