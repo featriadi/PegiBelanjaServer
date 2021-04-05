@@ -2,12 +2,10 @@ package controller
 
 import (
 	"fmt"
+	"github.com/labstack/echo/v4"
 	"net/http"
-	"net/url"
 	"pb-dev-be/models"
 	"strconv"
-
-	"github.com/labstack/echo/v4"
 )
 
 func CreateOrder(c echo.Context) error {
@@ -20,27 +18,6 @@ func CreateOrder(c echo.Context) error {
 	}
 
 	result, err := models.CreateOrder(*order)
-
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, result)
-	}
-
-	return c.JSON(http.StatusOK, result)
-}
-
-func PostOrder(c echo.Context) error {
-	var order = new(models.Order)
-	formData := url.Values{
-		"name": {"rey"},
-	}
-
-	err := c.Bind(order)
-
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Bind Error : " + err.Error()})
-	}
-
-	result, err := http.PostForm("https://app.sandbox.midtrans.com/snap/v1/transactions", formData)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, result)
@@ -160,3 +137,22 @@ func GetTransactionStatus(c echo.Context) error {
 
 	return c.JSONPretty(http.StatusOK, result, "  ")
 }
+
+// func setupMidtrans() {
+// 	midclient = midtrans.NewClient()
+// 	midclient.ServerKey = "Mid-server-HnkexXzOfhbI6jCPpRDt89Ea"
+// 	midclient.ClientKey = "Mid-client-ReTvSJvYbnAL17J5"
+// 	midclient.APIEnvType = midtrans.Sandbox
+
+// 	coreGateway = midtrans.CoreGateway{
+// 		Client: midclient,
+// 	}
+
+// 	snapGateway = midtrans.SnapGateway{
+// 		Client: midclient,
+// 	}
+// }
+
+// func generateOrderID() string {
+// 	return strconv.FormatInt(time.Now().UnixNano(), 10)
+// }

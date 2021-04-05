@@ -823,6 +823,7 @@ func CreateOrder(order Order) (Response, error) {
 	//Server KEY !important
 	// str := base64.StdEncoding.EncodeToString([]byte(conf.MIDTRANS_SERVER_KEY_SANDBOX))
 	str := base64.StdEncoding.EncodeToString([]byte(conf.MIDTRANS_SERVER_KEY))
+	fmt.Println(str)
 
 	jc, err := json.Marshal(mdData)
 	if err != nil {
@@ -837,7 +838,8 @@ func CreateOrder(order Order) (Response, error) {
 	//URL SANDBOX
 	// url := "https://app.sandbox.midtrans.com/snap/v1/transactions"
 	// URL Production
-	url := "https://app.midtrans.com/snap/v1/transactions"
+	// url := "https://app.midtrans.com/snap/v1/transactions"
+	url := "https://api.midtrans.com/v2/charge"
 	method := "POST"
 	payload := bytes.NewBuffer(jc)
 
@@ -922,6 +924,92 @@ func CreateOrder(order Order) (Response, error) {
 		}
 		return res, errors.New(ErrMessage)
 	}
+
+	// url := "https://api.midtrans.com/v2/charge"
+	// method := "POST"
+	// payload := bytes.NewBuffer(jc)
+
+	// client := &http.Client{}
+	// req, err := http.NewRequest(method, url, payload)
+
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Request To Midtrans"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	// req.Header.Add("Authorization", "Basic "+str)
+	// req.Header.Add("Content-Type", "application/json")
+	// response, err := client.Do(req)
+
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Response From Midtrans"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	// defer response.Body.Close()
+	// body, err := ioutil.ReadAll(response.Body)
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Read Response From Midtrans"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	// var errRes = new(MidtransErrorResponse)
+	// var succRes = new(MidtransSuccessResponse)
+
+	// err = json.Unmarshal(body, errRes)
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Read Error Response From Midtrans"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	// err = json.Unmarshal(body, succRes)
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Read Success Response From Midtrans"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	// if errRes.ErrorMessages != nil {
+	// 	tx.Rollback()
+
+	// 	var ErrMessage string
+	// 	for idx := range errRes.ErrorMessages {
+	// 		obj := errRes.ErrorMessages[idx]
+	// 		if idx == 0 {
+	// 			ErrMessage = obj
+	// 		} else {
+	// 			ErrMessage += " - " + obj
+
+	// 		}
+	// 	}
+
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = "failed"
+	// 	res.Data = map[string]interface{}{
+	// 		"request_body":  mdData,
+	// 		"response_body": errRes,
+	// 	}
+	// 	return res, errors.New(ErrMessage)
+	// }
 
 	err = UpdateCounterCount("inv_order")
 	if err != nil {

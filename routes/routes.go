@@ -148,7 +148,7 @@ func Init() *echo.Echo {
 
 	//Order
 	e.POST("/order/create", controller.CreateOrder)
-	e.POST("/order/post", controller.PostOrder)
+	// e.POST("/order/post", controller.ChargeDirect)
 	e.GET("/order/get/transaction/status/:order_id", controller.GetTransactionStatus)
 	e.GET("/order/get", controller.GetOrderData)
 	e.GET("/order/stats/get", controller.GetOrderStats)
