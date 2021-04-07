@@ -2,13 +2,32 @@ package controller
 
 import (
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"net/http"
 	"pb-dev-be/models"
 	"strconv"
+
+	"github.com/labstack/echo/v4"
 )
 
 func CreateOrder(c echo.Context) error {
+	var order = new(models.Order)
+
+	err := c.Bind(order)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Bind Error : " + err.Error()})
+	}
+
+	result, err := models.CreateOrder(*order)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, result)
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+func CreateOrderCore(c echo.Context) error {
 	var order = new(models.Order)
 
 	err := c.Bind(order)

@@ -143,6 +143,35 @@ type Order struct {
 	Coupon                OrderCoupon          `json:"coupon"`
 	Dropshipper           OrderDropshipper     `json:"dropshipper"`
 	PartialBalance        OrderPartialBalance  `json:"partial_balance"`
+	ServerKey             string
+	// ServerKey             string               `json:"ServerKey"`
+}
+
+type OrderCore struct {
+	Id                    int                  `json:"order_id"`
+	Invoice               string               `json:"invoice_number"`
+	OrderAt               string               `json:"order_at"`
+	CustomerId            string               `json:"customer_id"`
+	CustomerName          string               `json:"customer_name"`
+	Tax                   float64              `json:"tax"`
+	Total                 float64              `json:"total"`
+	Status                string               `json:"status"`
+	IsTakeFromStore       bool                 `json:"is_take_from_store"`
+	IsDropshipper         bool                 `json:"is_dropshipper"`
+	PaymentMethod         string               `json:"payment_method"`
+	Note                  string               `json:"note"`
+	IsUsingCoupon         bool                 `json:"is_using_coupon"`
+	IsUsingPartialBalance bool                 `json:"is_using_partial_balance"`
+	UserId                string               `json:"user_id"`
+	Created_at            string               `json:"created_at"`
+	Item                  []OrderProduct       `json:"item"`
+	Delivery              OrderDelivery        `json:"delivery"`
+	ShippingAddress       OrderShippingAddress `json:"shipping_address"`
+	Coupon                OrderCoupon          `json:"coupon"`
+	Dropshipper           OrderDropshipper     `json:"dropshipper"`
+	PartialBalance        OrderPartialBalance  `json:"partial_balance"`
+	ServerKey             string
+	// ServerKey             string               `json:"ServerKey"`
 }
 
 type OrderDelivery struct {
@@ -857,6 +886,606 @@ func CreateOrder(order Order) (Response, error) {
 
 	req.Header.Add("Authorization", "Basic "+str)
 	req.Header.Add("Content-Type", "application/json")
+	req.SetBasicAuth(order.ServerKey, "Mid-server-HnkexXzOfhbI6jCPpRDt89Ea")
+	// req.Header.Add("Accept", "application/json")
+	response, err := client.Do(req)
+
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Response From Midtrans"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Read Response From Midtrans"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	var errRes = new(MidtransErrorResponse)
+	var succRes = new(MidtransSuccessResponse)
+
+	err = json.Unmarshal(body, errRes)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Read Error Response From Midtrans"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	err = json.Unmarshal(body, succRes)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Read Success Response From Midtrans"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	if errRes.ErrorMessages != nil {
+		tx.Rollback()
+
+		var ErrMessage string
+		for idx := range errRes.ErrorMessages {
+			obj := errRes.ErrorMessages[idx]
+			if idx == 0 {
+				ErrMessage = obj
+			} else {
+				ErrMessage += " - " + obj
+
+			}
+		}
+
+		res.Status = http.StatusInternalServerError
+		res.Message = "failed"
+		res.Data = map[string]interface{}{
+			"request_body":  mdData,
+			"response_body": errRes,
+		}
+		return res, errors.New(ErrMessage)
+	}
+
+	// url := "https://api.midtrans.com/v2/charge"
+	// method := "POST"
+	// payload := bytes.NewBuffer(jc)
+
+	// client := &http.Client{}
+	// req, err := http.NewRequest(method, url, payload)
+
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Request To Midtrans"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	// req.Header.Add("Authorization", "Basic "+str)
+	// req.Header.Add("Content-Type", "application/json")
+	// response, err := client.Do(req)
+
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Response From Midtrans"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	// defer response.Body.Close()
+	// body, err := ioutil.ReadAll(response.Body)
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Read Response From Midtrans"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	// var errRes = new(MidtransErrorResponse)
+	// var succRes = new(MidtransSuccessResponse)
+
+	// err = json.Unmarshal(body, errRes)
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Read Error Response From Midtrans"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	// err = json.Unmarshal(body, succRes)
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Read Success Response From Midtrans"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	// if errRes.ErrorMessages != nil {
+	// 	tx.Rollback()
+
+	// 	var ErrMessage string
+	// 	for idx := range errRes.ErrorMessages {
+	// 		obj := errRes.ErrorMessages[idx]
+	// 		if idx == 0 {
+	// 			ErrMessage = obj
+	// 		} else {
+	// 			ErrMessage += " - " + obj
+
+	// 		}
+	// 	}
+
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = "failed"
+	// 	res.Data = map[string]interface{}{
+	// 		"request_body":  mdData,
+	// 		"response_body": errRes,
+	// 	}
+	// 	return res, errors.New(ErrMessage)
+	// }
+
+	err = UpdateCounterCount("inv_order")
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - UpdateCount"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	res.Status = http.StatusOK
+	res.Message = "success"
+	res.Data = map[string]interface{}{
+		"request_body":  mdData,
+		"response_body": succRes,
+	}
+	// } else {
+	// 	err = UpdateCounterCount("inv_order")
+	// 	if err != nil {
+	// 		tx.Rollback()
+	// 		er := err.Error() + " - UpdateCount"
+	// 		res.Status = http.StatusInternalServerError
+	// 		res.Message = er
+	// 		res.Data = order
+	// 		return res, errors.New(er)
+	// 	}
+
+	// 	res.Status = http.StatusOK
+	// 	res.Message = "success"
+	// 	res.Data = order
+	// }
+
+	// var _orderTacking OrderTracking
+	// _orderTacking.OrderId = strconv.Itoa(order.Id)
+	// _orderTacking.ItemNumber = 0
+	// _orderTacking.Created_at = time.Now().Format("2006-01-02 15:04:05 +0700")
+	// _orderTacking.TrackingStatus = "Menunggu Pembayaran"
+
+	// _, err = CreateOrderTracking(_orderTacking, "")
+
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - OrderTracking"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = payload
+	// 	return res, errors.New(er)
+	// }
+
+	err = tx.Commit()
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = order
+		return res, err
+	}
+	return res, nil
+}
+
+func CreateOrderCore(order OrderCore) (Response, error) {
+	var res Response
+	conf := config.GetConfig()
+
+	con := db.CreateCon()
+
+	ctx := context.Background()
+	tx, err := con.BeginTx(ctx, nil)
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = nil
+		return res, err
+	}
+
+	qry := `INSERT INTO smc_torder VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	qry_item := `INSERT INTO smc_torderproduct VALUES(?, ?, ?, ?, ?, ?, ?)`
+	qry_delivery := `INSERT INTO smc_torderdelivery VALUES(?, ?, ?, ?)`
+	qry_address := `INSERT INTO smc_tordershippingaddress VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	qry_coupon := `INSERT INTO smc_tordercoupon VALUES(?, ?)`
+	qry_dropshipper := `INSERT INTO smc_torderdropshipper VALUES(?, ?, ?)`
+	qry_partialbalance := `INSERT INTO smc_torderpartialbalance VALUES(?, ?)`
+
+	gen_id, err := GenerateOrderId(con)
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = nil
+		return res, err
+	}
+
+	//Order Header
+	date := time.Now()
+	order.Id = gen_id
+	order.OrderAt = date.Format("2006-01-02 15:04:05")
+	order.Created_at = date.Format("2006-01-02 15:04:05")
+	order.Status = "Accepted"
+	gen_inv, err := GenerateInvoiceNumber(con)
+
+	if err != nil {
+		res.Status = http.StatusInternalServerError
+		res.Message = err.Error()
+		res.Data = nil
+		return res, err
+	}
+	order.Invoice = gen_inv
+
+	_, err = tx.ExecContext(ctx, qry, order.Id, order.Invoice, order.OrderAt, order.CustomerId, order.Tax, order.Total,
+		order.Status, order.IsTakeFromStore, order.IsDropshipper, order.PaymentMethod, order.Note, order.IsUsingCoupon,
+		order.IsUsingPartialBalance, order.UserId, order.Created_at)
+
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Header"
+		fmt.Println(er)
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+	//End Order Header
+
+	//Order Item
+	for idx := range order.Item {
+		item := order.Item[idx]
+		item.ItemNumber = idx
+
+		_, err := tx.ExecContext(ctx, qry_item, order.Id, item.ItemNumber, item.ProductId, item.Qty, item.Price, item.VariantId, item.VariantContent)
+
+		if err != nil {
+			tx.Rollback()
+			er := err.Error() + " - Item"
+			fmt.Println(er)
+			res.Status = http.StatusInternalServerError
+			res.Message = er
+			res.Data = order
+			return res, errors.New(er)
+		}
+	}
+	//End Order Item
+
+	//Order Delivery
+	_, err = tx.ExecContext(ctx, qry_delivery, order.Id, order.Delivery.TimeDeliveryId, order.Delivery.Fee, order.Delivery.WayBill)
+
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Delivery"
+		fmt.Println(er)
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+	//End Order Delivery
+
+	//Order Address
+	_, err = tx.ExecContext(ctx, qry_address, order.Id, order.ShippingAddress.AddressName, order.ShippingAddress.Recipient, order.ShippingAddress.PhoneNumber, order.ShippingAddress.Province,
+		order.ShippingAddress.City, order.ShippingAddress.SubDistrict, order.ShippingAddress.PostalCode, order.ShippingAddress.Address)
+
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Address"
+		fmt.Println(er)
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+	//End Order Address
+
+	//Order Coupon
+	if order.Coupon.CouponCode != "" {
+		_, err = tx.ExecContext(ctx, qry_coupon, order.Id, order.Coupon.CouponCode)
+
+		if err != nil {
+			tx.Rollback()
+			er := err.Error() + " - Coupon"
+			fmt.Println(er)
+			res.Status = http.StatusInternalServerError
+			res.Message = er
+			res.Data = order
+			return res, errors.New(er)
+		}
+	}
+	//End Order Coupon
+
+	//Order Dropshipper
+	if order.Dropshipper.ShipperName != "" {
+		_, err = tx.ExecContext(ctx, qry_dropshipper, order.Id, order.Dropshipper.ShipperName, order.Dropshipper.ShipperPhoneNumber)
+
+		if err != nil {
+			tx.Rollback()
+			er := err.Error() + " - Dropshipper"
+			fmt.Println(er)
+			res.Status = http.StatusInternalServerError
+			res.Message = er
+			res.Data = order
+			return res, errors.New(er)
+		}
+	}
+	//End Order Dropshipper
+
+	//Order Partial Balance
+	if order.PartialBalance.PartialBalance != 0 {
+		_, err = tx.ExecContext(ctx, qry_partialbalance, order.Id, order.PartialBalance.PartialBalance)
+
+		if err != nil {
+			tx.Rollback()
+			er := err.Error() + " - Partial Balance"
+			fmt.Println(er)
+			res.Status = http.StatusInternalServerError
+			res.Message = er
+			res.Data = order
+			return res, errors.New(er)
+		}
+	}
+	//End Order Partial Balance
+
+	// if !order.IsTakeFromStore {
+	//Prepare Data For Midtrans
+	var mdData = new(MidtransOrder)
+
+	//Transaction Details
+	mdData.TransactionDetails.OrderId = strconv.Itoa(order.Id)
+	mdData.TransactionDetails.GrossAmount = order.Total
+	//End Transaction Details
+
+	//Item Details
+	//------------------------1
+	//Courier
+	for idx := range order.Item {
+		item := order.Item[idx]
+		var mdItemData MidtransItemDetails
+		var product Product
+		product, err = GetProductById(item.ProductId)
+
+		if err != nil {
+			tx.Rollback()
+			er := err.Error() + " - Prepare Midtrans Item Detail (Get Product)"
+			res.Status = http.StatusInternalServerError
+			res.Message = er
+			res.Data = order
+			return res, errors.New(er)
+		}
+
+		category, err := GetCategoryById(product.CategoryId)
+
+		if err != nil {
+			tx.Rollback()
+			er := err.Error() + " - Prepare Midtrans Item Detail (Get Category)"
+			res.Status = http.StatusInternalServerError
+			res.Message = er
+			res.Data = order
+			return res, errors.New(er)
+		}
+
+		var productName string
+		var variantName = ""
+		if product.IsVariant {
+			for _, v := range product.ProductDetails {
+				if v.VariantType == item.VariantId {
+					variantName = v.VariantName
+				}
+			}
+
+			productName = product.Name + " " + variantName + " " + item.VariantContent
+		} else {
+			productName = product.Name
+		}
+
+		mdItemData.Id = item.ProductId
+		mdItemData.Price = item.Price
+		mdItemData.Qty = item.Qty
+		mdItemData.Name = productName
+		mdItemData.Brand = ""
+		mdItemData.Category = category.Name
+		mdItemData.MerchantName = ""
+
+		mdData.ItemDetails = append(mdData.ItemDetails, mdItemData)
+	}
+	//End
+	//------------------------
+	//Delivery Fee
+	var mdItemData MidtransItemDetails
+	// var courier Courier
+	// courier, err = GetCourierById(order.Delivery.CourierId)
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	er := err.Error() + " - Prepare Midtrans Item Detail (Get Courier)"
+	// 	res.Status = http.StatusInternalServerError
+	// 	res.Message = er
+	// 	res.Data = order
+	// 	return res, errors.New(er)
+	// }
+
+	mdItemData.Id = order.Delivery.TimeDeliveryId
+	mdItemData.Price = order.Delivery.Fee
+	mdItemData.Qty = 1
+	mdItemData.Name = order.Delivery.TimeDeliveryId + " ~ " + order.Delivery.TimeDeliveryName + " - Delivery"
+	mdItemData.Brand = order.Delivery.TimeDeliveryId
+	mdItemData.Category = "DELIVERY"
+	mdItemData.MerchantName = ""
+
+	mdData.ItemDetails = append(mdData.ItemDetails, mdItemData)
+
+	//End Delivery Fee
+
+	//End Item Details
+
+	//Customer Details
+	param_custId, err := strconv.Atoi(order.CustomerId)
+
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Prepare Midtrans Customer Details (Convert Cust Id)"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+
+	cust, err := GetCustomerById(param_custId)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Prepare Midtrans Customer Details (Get Customer)"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+
+	city, err := GetCityByIdData(order.ShippingAddress.City)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Prepare Midtrans Customer Details (Get City)"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+
+	mdData.CustomerDetails.FirstName = cust.Name
+	mdData.CustomerDetails.LastName = ""
+	mdData.CustomerDetails.Email = cust.Email
+	mdData.CustomerDetails.Phone = cust.PhoneNumber
+
+	mdData.CustomerDetails.BillingAddress.FirstName = cust.Name
+	mdData.CustomerDetails.BillingAddress.LastName = ""
+	mdData.CustomerDetails.BillingAddress.Email = cust.Email
+	mdData.CustomerDetails.BillingAddress.Phone = order.ShippingAddress.PhoneNumber
+	mdData.CustomerDetails.BillingAddress.Address = order.ShippingAddress.Address
+	mdData.CustomerDetails.BillingAddress.City = city.Name
+	mdData.CustomerDetails.BillingAddress.PostalCode = order.ShippingAddress.PostalCode
+	mdData.CustomerDetails.BillingAddress.CountryCode = "IDN"
+
+	mdData.CustomerDetails.ShippingAddress.FirstName = cust.Name
+	mdData.CustomerDetails.ShippingAddress.LastName = ""
+	mdData.CustomerDetails.ShippingAddress.Email = cust.Email
+	mdData.CustomerDetails.ShippingAddress.Phone = order.ShippingAddress.PhoneNumber
+	mdData.CustomerDetails.ShippingAddress.Address = order.ShippingAddress.Address
+	mdData.CustomerDetails.ShippingAddress.City = city.Name
+	mdData.CustomerDetails.ShippingAddress.PostalCode = order.ShippingAddress.PostalCode
+	mdData.CustomerDetails.ShippingAddress.CountryCode = "IDN"
+	//End Customer Details
+
+	//Enabled Payment
+	mdData.EnabledPayment = []string{"echannel", "bni_va"}
+	//End Enabled Payment
+
+	//BCA VA
+	var freetextInq MidtransBCAVAFreeTextInquiry
+	var freetextPay MidtransBCAVAFreeTextPayment
+	// mdData.BCAVA.VANumber = "12345678911"
+	// mdData.BCAVA.SubCompanyCode = "00000"
+
+	freetextInq.EN = ""
+	freetextInq.ID = ""
+
+	freetextPay.EN = ""
+	freetextPay.ID = ""
+	// mdData.BCAVA.FreeText.Inquiry = append(mdData.BCAVA.FreeText.Inquiry, freetextInq)
+	// mdData.BCAVA.FreeText.Payment = append(mdData.BCAVA.FreeText.Payment, freetextPay)
+	//End BCA VA
+
+	//BNI VA
+	mdData.BNIVA.VANumber = "12345678"
+	//End BNI VA
+
+	//Callbacks
+	mdData.Callbacks.Finish = "www.pegiblanja.com"
+	//End Callbacks
+
+	//Expiry
+
+	mdData.Expiry.StartTime = date.Format("2006-01-02 15:04:05 +0700")
+	mdData.Expiry.Unit = "days"
+	mdData.Expiry.Duration = 1
+	//End Expiry
+
+	//Custom Fields
+	mdData.CustomField1 = order.Invoice
+	mdData.CustomField2 = ""
+	mdData.CustomField3 = ""
+	//End
+
+	//End
+
+	//Server KEY !important
+	// str := base64.StdEncoding.EncodeToString([]byte(conf.MIDTRANS_SERVER_KEY_SANDBOX))
+	str := base64.StdEncoding.EncodeToString([]byte(conf.MIDTRANS_SERVER_KEY))
+	fmt.Println(str)
+
+	jc, err := json.Marshal(mdData)
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Prepare Midtrans JSON Convert"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = order
+		return res, errors.New(er)
+	}
+
+	//URL SANDBOX
+	// url := "https://app.sandbox.midtrans.com/snap/v1/transactions"
+	// URL Production
+	// url := "https://app.midtrans.com/snap/v1/transactions"
+	url := "https://api.midtrans.com/v2/charge"
+	method := "POST"
+	payload := bytes.NewBuffer(jc)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+		tx.Rollback()
+		er := err.Error() + " - Request To Midtrans"
+		res.Status = http.StatusInternalServerError
+		res.Message = er
+		res.Data = payload
+		return res, errors.New(er)
+	}
+
+	req.Header.Add("Authorization", "Basic "+str)
+	req.Header.Add("Content-Type", "application/json")
+	req.SetBasicAuth(order.ServerKey, "Mid-server-HnkexXzOfhbI6jCPpRDt89Ea")
 	response, err := client.Do(req)
 
 	if err != nil {
